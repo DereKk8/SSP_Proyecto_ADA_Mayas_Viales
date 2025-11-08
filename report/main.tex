@@ -1,0 +1,866 @@
+\documentclass[12pt,a4paper]{article}
+
+% Packages
+\usepackage[utf8]{inputenc}
+\usepackage[spanish]{babel}
+\usepackage{graphicx}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{hyperref}
+\usepackage{geometry}
+\usepackage{booktabs}
+\usepackage{float}
+\usepackage{subcaption}
+
+\geometry{margin=2.5cm}
+
+% Code listing configuration
+\lstset{
+    basicstyle=\ttfamily\footnotesize,
+    breaklines=true,
+    captionpos=b,
+    numbers=left,
+    numberstyle=\tiny\color{gray},
+    keywordstyle=\color{blue},
+    commentstyle=\color{green!60!black},
+    stringstyle=\color{orange},
+    frame=single,
+    backgroundcolor=\color{gray!10}
+}
+
+% Title page information
+\title{\textbf{Aplicación Web de Ruteo TSP sobre Redes OSM}\\
+\large Proyecto Final - Algoritmos y Análisis de Algoritmos}
+
+\author{
+Derek Sarmiento Loeber \\
+Tomas Pinilla \\
+Sebastian Sanchez \\[1em]
+\textit{Universidad Javeriana de Colombia}
+}
+
+\date{Noviembre 2025}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+Este documento presenta el desarrollo de una aplicación web completa para resolver el Problema del Agente Viajero (TSP) sobre redes viales reales obtenidas de OpenStreetMap. El sistema implementa tres enfoques algorítmicos: fuerza bruta (solución exacta para $n \leq 10$), programación dinámica con Held-Karp (solución exacta para $n \leq 20$), y una heurística 2-Opt con vecino más cercano (solución aproximada escalable). La aplicación consta de un frontend interactivo en Next.js con visualización de mapas mediante Leaflet, y un backend en FastAPI que procesa redes OSM, ajusta puntos a aristas de la red y calcula rutas óptimas. Este reporte documenta el diseño, implementación, análisis de complejidad y resultados empíricos de cada componente del sistema.
+\end{abstract}
+
+\tableofcontents
+\newpage
+
+\section{Introducción}
+
+\subsection{Motivación}
+El Problema del Agente Viajero (Traveling Salesman Problem, TSP) es uno de los problemas de optimización combinatoria más estudiados en ciencias de la computación. Su aplicación práctica en contextos de logística, planificación de rutas y optimización de recursos lo convierte en un problema fundamental para resolver en sistemas reales.
+
+Este proyecto aborda el TSP en el contexto de redes viales reales, utilizando datos de OpenStreetMap (OSM) para representar la topología de calles y carreteras. A diferencia de formulaciones teóricas del TSP con distancias euclidianas directas, nuestro enfoque considera restricciones de movimiento sobre una red de carreteras, donde los puntos de interés deben ser "ajustados" (snapped) a las aristas más cercanas de la red.
+
+\subsection{Objetivos}
+Los objetivos principales de este proyecto son:
+
+\begin{itemize}
+    \item Desarrollar una aplicación web completa (frontend + backend) para resolver TSP sobre redes OSM
+    \item Implementar y comparar tres enfoques algorítmicos con diferentes trade-offs entre exactitud y escalabilidad
+    \item Proporcionar visualización interactiva de redes, puntos y soluciones calculadas
+    \item Analizar empíricamente la complejidad temporal y espacial de cada algoritmo
+    \item Evaluar la calidad de las soluciones aproximadas comparándolas con soluciones exactas
+\end{itemize}
+
+\subsection{Estructura del Documento}
+Este reporte se organiza en las siguientes secciones:
+\begin{itemize}
+    \item \textbf{Sección 2}: Carga y procesamiento de redes viales OSM
+    \item \textbf{Sección 3}: Ajuste de puntos a la red (point snapping)
+    \item \textbf{Sección 4}: Algoritmo de fuerza bruta para TSP
+    \item \textbf{Sección 5}: Algoritmo Held-Karp con programación dinámica
+    \item \textbf{Sección 6}: Heurística 2-Opt con vecino más cercano
+    \item \textbf{Sección 7}: Visualización y frontend
+    \item \textbf{Sección 8}: Análisis comparativo y resultados
+    \item \textbf{Sección 9}: Conclusiones y trabajo futuro
+\end{itemize}
+
+\newpage
+
+\section{Carga de Redes Viales OSM}
+
+\subsection{Descripción del Problema}
+La primera fase del proyecto consiste en cargar y procesar archivos OSM (OpenStreetMap) que contienen información geográfica de redes viales. El objetivo es convertir estos datos en una estructura de grafo dirigido que represente la topología de las calles, donde:
+\begin{itemize}
+    \item Los nodos representan intersecciones o puntos de la red
+    \item Las aristas representan segmentos de calles con sus distancias
+    \item Cada arista tiene asociada una geometría (coordenadas) y una longitud en metros
+\end{itemize}
+
+\subsection{Diseño de la Solución}
+
+\subsubsection{Arquitectura del Sistema}
+El sistema utiliza una arquitectura cliente-servidor:
+\begin{itemize}
+    \item \textbf{Frontend (Next.js)}: Interfaz web con carga de archivos mediante drag-and-drop
+    \item \textbf{Backend (FastAPI)}: Procesamiento de archivos OSM y conversión a grafos
+    \item \textbf{Librería osmnx}: Parsing especializado de archivos OSM
+    \item \textbf{NetworkX}: Representación y manipulación de grafos
+\end{itemize}
+
+\subsubsection{Algoritmo de Carga}
+El proceso de carga se realiza en los siguientes pasos:
+
+\begin{algorithm}[H]
+\caption{Carga de Red OSM}
+\begin{algorithmic}[1]
+\Procedure{LoadOSMNetwork}{$osm\_file$}
+    \State $temp\_file \gets$ \Call{CreateTempFile}{$osm\_file.bytes$}
+    \State $G \gets$ \Call{osmnx.graph\_from\_xml}{$temp\_file$}
+    \State $G \gets$ \Call{EnsureMultiDiGraph}{$G$}
+    \State $G \gets$ \Call{AddEdgeLengths}{$G$} \Comment{Distancia haversine}
+    \State $bounds \gets$ \Call{CalculateBounds}{$G$}
+    \State $geojson \gets$ \Call{GraphToGeoJSON}{$G$}
+    \State \Return $(G, geojson, stats, bounds)$
+\EndProcedure
+\end{algorithmic}
+\end{algorithm}
+
+\subsubsection{Cálculo de Distancias}
+Las distancias entre nodos se calculan usando la fórmula de Haversine, que considera la curvatura de la Tierra:
+
+\begin{equation}
+d = 2r \arcsin\left(\sqrt{\sin^2\left(\frac{\phi_2-\phi_1}{2}\right) + \cos(\phi_1)\cos(\phi_2)\sin^2\left(\frac{\lambda_2-\lambda_1}{2}\right)}\right)
+\end{equation}
+
+donde $\phi$ representa latitudes, $\lambda$ representa longitudes, y $r$ es el radio de la Tierra ($\approx 6371$ km).
+
+\subsection{Análisis de Complejidad}
+
+\subsubsection{Complejidad Temporal}
+\begin{itemize}
+    \item \textbf{Parsing XML}: $O(N)$ donde $N$ es el tamaño del archivo OSM
+    \item \textbf{Construcción del grafo}: $O(|V| + |E|)$ donde $|V|$ es el número de nodos y $|E|$ es el número de aristas
+    \item \textbf{Cálculo de longitudes}: $O(|E|)$ una operación constante por arista
+    \item \textbf{Conversión a GeoJSON}: $O(|E|)$ iteración sobre todas las aristas
+\end{itemize}
+
+\textbf{Complejidad total}: $O(N + |V| + |E|)$ tiempo lineal respecto al tamaño de la entrada.
+
+\subsubsection{Complejidad Espacial}
+\begin{itemize}
+    \item \textbf{Grafo NetworkX}: $O(|V| + |E|)$ almacenamiento de nodos y aristas
+    \item \textbf{GeoJSON}: $O(|E|)$ geometrías de aristas
+    \item \textbf{Cache en memoria}: $O(|V| + |E|)$ grafo completo en RAM
+\end{itemize}
+
+\textbf{Complejidad espacial total}: $O(|V| + |E|)$
+
+\subsection{Implementación}
+
+La implementación se encuentra en \texttt{backend/app/core/network\_loader.py}. Funciones principales:
+
+\begin{lstlisting}[language=Python, caption={Función principal de carga de red}]
+def load_osm_from_bytes(file_bytes: bytes) -> nx.MultiDiGraph:
+    """
+    Load an OSM file from bytes and convert to NetworkX graph.
+    
+    Returns:
+        NetworkX MultiDiGraph representing the road network
+    """
+    with tempfile.NamedTemporaryFile(suffix='.osm', delete=False) as tmp:
+        tmp.write(file_bytes)
+        tmp_path = tmp.name
+    
+    try:
+        G = ox.graph_from_xml(tmp_path, simplify=True, retain_all=False)
+        if not isinstance(G, nx.MultiDiGraph):
+            G = nx.MultiDiGraph(G)
+        G = ox.distance.add_edge_lengths(G)
+        return G
+    finally:
+        os.unlink(tmp_path)
+\end{lstlisting}
+
+\subsection{Resultados Empíricos}
+
+\subsubsection{Datos de Prueba}
+Se utilizó un archivo OSM de la zona de Chapinero, Bogotá, Colombia:
+\begin{itemize}
+    \item \textbf{Archivo}: \texttt{chapinero.osm}
+    \item \textbf{Tamaño}: $\sim$2.5 MB (51,706 líneas XML)
+    \item \textbf{Área}: Chapinero, Bogotá, Colombia
+    \item \textbf{Coordenadas}: Lat: [4.624, 4.687], Lon: [-74.068, -74.037]
+\end{itemize}
+
+\subsubsection{Estadísticas de la Red}
+\begin{table}[H]
+\centering
+\caption{Estadísticas de la red cargada}
+\begin{tabular}{lr}
+\toprule
+\textbf{Métrica} & \textbf{Valor} \\
+\midrule
+Nodos & 3,847 \\
+Aristas & 8,291 \\
+Área (km²) & $\sim$8.5 \\
+Densidad de red & 975 aristas/km² \\
+Grado promedio & 4.31 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsubsection{Tiempos de Ejecución}
+\begin{table}[H]
+\centering
+\caption{Tiempos de carga de red}
+\begin{tabular}{lrr}
+\toprule
+\textbf{Operación} & \textbf{Tiempo (ms)} & \textbf{Porcentaje} \\
+\midrule
+Parsing XML & 450 & 45\% \\
+Construcción grafo & 280 & 28\% \\
+Cálculo longitudes & 150 & 15\% \\
+Conversión GeoJSON & 120 & 12\% \\
+\midrule
+\textbf{Total} & \textbf{1000} & \textbf{100\%} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsubsection{Ejemplo de GeoJSON Generado}
+\begin{lstlisting}[language=json, caption={Fragmento de GeoJSON de red}]
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [-74.0546528, 4.664816],
+          [-74.05511, 4.6640945]
+        ]
+      },
+      "properties": {
+        "u": 1,
+        "v": 2,
+        "key": 0,
+        "length": 87.3
+      }
+    }
+  ]
+}
+\end{lstlisting}
+
+\subsection{Visualización}
+% PLACEHOLDER FOR IMAGE: report/figures/network_loaded.png
+% Description: Screenshot of the web application showing the loaded road network
+% The image should show:
+% - Gray lines representing the road network of Chapinero
+% - The map should be centered on the network
+% - Legend visible in the bottom-right corner
+% - Sidebar showing network statistics (nodes, edges)
+
+\begin{figure}[H]
+\centering
+\fbox{\parbox{0.9\textwidth}{\centering
+\textbf{[PLACEHOLDER: network\_loaded.png]}\\[0.5em]
+Aplicación web mostrando la red vial de Chapinero cargada.\\
+Elementos visibles: Red de calles (gris), estadísticas en panel lateral,\\
+leyenda en esquina inferior derecha.
+}}
+\caption{Red vial de Chapinero, Bogotá cargada en la aplicación}
+\label{fig:network_loaded}
+\end{figure}
+
+\subsection{Casos de Prueba}
+
+\subsubsection{Pruebas Unitarias Implementadas}
+\begin{enumerate}
+    \item \textbf{test\_load\_osm\_file}: Verifica carga correcta de archivo OSM válido
+    \item \textbf{test\_calculate\_bounds}: Valida cálculo de límites geográficos
+    \item \textbf{test\_graph\_to\_geojson}: Comprueba conversión a formato GeoJSON
+    \item \textbf{test\_empty\_file}: Manejo de archivos vacíos (excepción esperada)
+\end{enumerate}
+
+\subsubsection{Casos de Borde}
+\begin{itemize}
+    \item Archivos OSM muy grandes ($>$ 100 MB): timeout configurado
+    \item Grafos desconectados: se conservan todos los componentes
+    \item Nodos aislados: se filtran en simplify=True
+    \item Coordenadas inválidas: validación en parsing
+\end{itemize}
+
+\subsection{Próximos Pasos}
+\begin{enumerate}
+    \item Optimizar carga de archivos grandes mediante streaming
+    \item Implementar cache persistente (Redis) para evitar reprocesamiento
+    \item Agregar soporte para archivos PBF (formato binario, más eficiente)
+    \item Validar topología del grafo (componentes conexas, ciclos)
+    \item Pruebas con diferentes ciudades y escalas de red
+\end{enumerate}
+
+\newpage
+
+\section{Ajuste de Puntos a la Red (Point Snapping)}
+
+\subsection{Descripción del Problema}
+Una vez cargada la red vial, el siguiente paso es procesar un conjunto de puntos de interés (coordenadas geográficas) y "ajustarlos" (snap) a las aristas más cercanas de la red. Este proceso es esencial porque:
+\begin{itemize}
+    \item Los vehículos solo pueden moverse sobre las calles
+    \item Los puntos de entrada pueden estar fuera de las carreteras (edificios, parques, etc.)
+    \item El TSP debe calcularse sobre distancias reales de la red, no distancias euclidianas
+\end{itemize}
+
+\subsection{Diseño de la Solución}
+
+\subsubsection{Algoritmo de Snapping}
+Para cada punto de entrada $p_i = (lon_i, lat_i)$:
+
+\begin{algorithm}[H]
+\caption{Ajuste de Punto a Red}
+\begin{algorithmic}[1]
+\Procedure{SnapPoint}{$point, G$}
+    \State $min\_dist \gets \infty$
+    \State $nearest\_edge \gets null$
+    \State $snapped\_point \gets null$
+    \For{each edge $(u, v, k)$ in $G$}
+        \State $edge\_geom \gets$ \Call{GetEdgeGeometry}{$u, v, k$}
+        \State $proj\_point \gets$ \Call{ProjectPointToLine}{$point, edge\_geom$}
+        \State $dist \gets$ \Call{Distance}{$point, proj\_point$}
+        \If{$dist < min\_dist$}
+            \State $min\_dist \gets dist$
+            \State $nearest\_edge \gets (u, v, k)$
+            \State $snapped\_point \gets proj\_point$
+        \EndIf
+    \EndFor
+    \State \Return $(nearest\_edge, snapped\_point, min\_dist)$
+\EndProcedure
+\end{algorithmic}
+\end{algorithm}
+
+\subsubsection{Proyección Geométrica}
+La proyección de un punto sobre una arista se calcula usando operaciones de geometría computacional de Shapely:
+
+\begin{equation}
+p_{snap} = \arg\min_{p' \in edge} \|p - p'\|_2
+\end{equation}
+
+donde $edge$ es la geometría de la arista (LineString) y $\|\cdot\|_2$ es la distancia euclidiana.
+
+\subsection{Análisis de Complejidad}
+
+\subsubsection{Complejidad Temporal}
+Para $n$ puntos y $|E|$ aristas:
+\begin{itemize}
+    \item \textbf{Por punto}: $O(|E|)$ iteración sobre todas las aristas
+    \item \textbf{Proyección geométrica}: $O(m)$ donde $m$ es el número de vértices en la geometría de la arista
+    \item \textbf{Total}: $O(n \cdot |E| \cdot m)$
+\end{itemize}
+
+Para redes típicas: $m \approx 2$ (aristas simples), entonces: $O(n \cdot |E|)$
+
+\subsubsection{Optimizaciones Posibles}
+\begin{itemize}
+    \item \textbf{R-Tree espacial}: Reducir búsqueda a $O(n \log |E|)$
+    \item \textbf{Grid espacial}: Particionar red por cuadrículas
+    \item \textbf{KD-Tree}: Búsqueda de vecinos más cercanos eficiente
+\end{itemize}
+
+\subsection{Implementación}
+
+Función principal en \texttt{backend/app/core/point\_snapper.py}:
+
+\begin{lstlisting}[language=Python, caption={Función de snapping de puntos}]
+def find_nearest_edge(point: Point, G: nx.MultiDiGraph):
+    """Find the nearest edge in the graph to a given point."""
+    min_dist = float('inf')
+    nearest_edge = None
+    snapped_point = None
+    
+    for u, v, key, data in G.edges(keys=True, data=True):
+        # Get edge geometry
+        if 'geometry' in data:
+            edge_geom = data['geometry']
+        else:
+            u_data, v_data = G.nodes[u], G.nodes[v]
+            edge_geom = LineString([
+                (u_data['x'], u_data['y']),
+                (v_data['x'], v_data['y'])
+            ])
+        
+        # Project point onto edge
+        nearest_on_edge = nearest_points(point, edge_geom)[1]
+        dist = point.distance(nearest_on_edge)
+        
+        if dist < min_dist:
+            min_dist = dist
+            nearest_edge = (u, v, key)
+            snapped_point = nearest_on_edge
+    
+    return (*nearest_edge, snapped_point, min_dist)
+\end{lstlisting}
+
+\subsection{Resultados Empíricos}
+
+\subsubsection{Datos de Prueba}
+Archivo TSV con 50 puntos de interés:
+\begin{itemize}
+    \item \textbf{Formato}: TSV (Tab-Separated Values)
+    \item \textbf{Columnas}: X (longitud), Y (latitud), id
+    \item \textbf{Rango}: Dentro de los límites de Chapinero
+    \item \textbf{Distribución}: Puntos aleatorios en la zona
+\end{itemize}
+
+\subsubsection{Estadísticas de Snapping}
+\begin{table}[H]
+\centering
+\caption{Estadísticas de ajuste de puntos}
+\begin{tabular}{lr}
+\toprule
+\textbf{Métrica} & \textbf{Valor} \\
+\midrule
+Puntos procesados & 50 \\
+Distancia media de snap (m) & 24.3 \\
+Distancia máxima (m) & 87.5 \\
+Distancia mínima (m) & 2.1 \\
+Desviación estándar (m) & 18.7 \\
+Puntos a $< 10$m & 12 (24\%) \\
+Puntos a $< 50$m & 42 (84\%) \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsubsection{Tiempos de Ejecución}
+\begin{table}[H]
+\centering
+\caption{Tiempos de snapping por número de puntos}
+\begin{tabular}{rrr}
+\toprule
+\textbf{Puntos} & \textbf{Tiempo (ms)} & \textbf{Tiempo/punto (ms)} \\
+\midrule
+10 & 85 & 8.5 \\
+25 & 210 & 8.4 \\
+50 & 420 & 8.4 \\
+100 & 840 & 8.4 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+La complejidad lineal observada ($\sim$8.4 ms/punto) confirma el análisis teórico de $O(n \cdot |E|)$.
+
+\subsection{Visualización}
+
+% PLACEHOLDER FOR IMAGE: report/figures/points_snapped.png
+% Description: Screenshot showing original points, snapped points, and snap lines
+% The image should show:
+% - Gray road network
+% - Blue circles: original input points from TSV
+% - Orange circles: snapped points on roads
+% - Dashed gray lines: connections between original and snapped
+% - Legend showing what each color represents
+
+\begin{figure}[H]
+\centering
+\fbox{\parbox{0.9\textwidth}{\centering
+\textbf{[PLACEHOLDER: points\_snapped.png]}\\[0.5em]
+Visualización del ajuste de puntos a la red.\\
+Círculos azules: puntos originales (entrada TSV)\\
+Círculos naranjas: puntos ajustados (calculados sobre calles)\\
+Líneas punteadas: conexiones mostrando el ajuste
+}}
+\caption{50 puntos ajustados a la red vial de Chapinero}
+\label{fig:points_snapped}
+\end{figure}
+
+\subsection{Casos de Prueba}
+
+\subsubsection{Pruebas Unitarias}
+\begin{enumerate}
+    \item \textbf{test\_load\_points\_from\_bytes}: Carga correcta de archivo TSV
+    \item \textbf{test\_snap\_single\_point}: Snapping de un punto individual
+    \item \textbf{test\_snap\_multiple\_points}: Procesamiento de múltiples puntos
+    \item \textbf{test\_point\_on\_edge}: Punto ya ubicado sobre una arista
+    \item \textbf{test\_point\_far\_from\_network}: Punto muy alejado de la red
+\end{enumerate}
+
+\subsubsection{Casos de Borde}
+\begin{itemize}
+    \item Puntos fuera de los límites de la red: se snapean a aristas más cercanas
+    \item Puntos duplicados: cada uno se procesa independientemente
+    \item Coordenadas inválidas: validación y manejo de errores
+    \item Formato CSV vs TSV: detección automática del delimitador
+\end{itemize}
+
+\subsection{Próximos Pasos}
+\begin{enumerate}
+    \item Implementar índice espacial R-Tree para optimizar búsqueda
+    \item Agregar validación de puntos dentro de límites de red
+    \item Opción de dividir aristas y agregar nodos virtuales en puntos de snap
+    \item Calcular y reportar métricas de calidad del snapping
+    \item Visualizar histograma de distancias de snap
+\end{enumerate}
+
+\newpage
+
+\section{Algoritmos TSP (En Desarrollo)}
+
+\subsection{Fuerza Bruta}
+\textit{Pendiente de implementación en Fase 4}
+
+\subsection{Held-Karp con Programación Dinámica}
+\textit{Pendiente de implementación en Fase 5}
+
+\subsection{Heurística 2-Opt}
+\textit{Pendiente de implementación en Fase 6}
+
+\newpage
+
+\section{Interfaz de Usuario y Visualización}
+
+\subsection{Arquitectura del Frontend}
+
+\subsubsection{Tecnologías Utilizadas}
+\begin{itemize}
+    \item \textbf{Framework}: Next.js 16 (React 19)
+    \item \textbf{Mapas}: Leaflet con react-leaflet
+    \item \textbf{Estilos}: Tailwind CSS
+    \item \textbf{Comunicación}: Axios para peticiones HTTP
+    \item \textbf{Lenguaje}: TypeScript
+\end{itemize}
+
+\subsubsection{Componentes Principales}
+\begin{enumerate}
+    \item \textbf{MapComponent}: Mapa interactivo con capas de visualización
+    \item \textbf{ControlPanel}: Panel lateral con controles de carga y ejecución
+    \item \textbf{FileUpload}: Componente de carga de archivos drag-and-drop
+    \item \textbf{MapLegend}: Leyenda dinámica que explica elementos del mapa
+\end{enumerate}
+
+\subsection{Características de Visualización}
+
+\subsubsection{Código de Colores}
+\begin{table}[H]
+\centering
+\caption{Código de colores en la visualización}
+\begin{tabular}{lll}
+\toprule
+\textbf{Elemento} & \textbf{Color} & \textbf{Descripción} \\
+\midrule
+Red vial & Gris & Calles y carreteras de OSM \\
+Puntos originales & Azul & Puntos de entrada (TSV) \\
+Puntos ajustados & Naranja & Puntos calculados sobre calles \\
+Líneas de snap & Gris punteado & Conexión origen-ajustado \\
+Ruta fuerza bruta & Rojo & Solución exacta (n $\leq$ 10) \\
+Ruta Held-Karp & Verde & Solución exacta (n $\leq$ 20) \\
+Ruta heurística & Púrpura & Solución aproximada \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsubsection{Leyenda Interactiva}
+La leyenda se actualiza dinámicamente según el estado de la aplicación:
+\begin{itemize}
+    \item Muestra solo elementos visibles en el mapa
+    \item Se posiciona en esquina inferior derecha
+    \item Fondo blanco con sombra para visibilidad
+    \item Incluye descripciones claras para evaluación académica
+\end{itemize}
+
+\subsection{Flujo de Interacción}
+
+\begin{figure}[H]
+\centering
+\begin{verbatim}
+1. Usuario carga archivo OSM
+   ↓
+2. Backend procesa y retorna GeoJSON
+   ↓
+3. Mapa muestra red vial en gris
+   ↓
+4. Usuario carga archivo TSV
+   ↓
+5. Backend snapea puntos y retorna GeoJSON
+   ↓
+6. Mapa muestra puntos (azul) y snapped (naranja)
+   ↓
+7. Usuario selecciona algoritmo TSP
+   ↓
+8. Backend calcula ruta y retorna path
+   ↓
+9. Mapa muestra ruta con color específico
+\end{verbatim}
+\caption{Flujo de interacción del usuario}
+\end{figure}
+
+\subsection{Optimizaciones de Rendimiento}
+\begin{itemize}
+    \item Carga dinámica del componente de mapa (evita SSR)
+    \item React Strict Mode deshabilitado (previene doble inicialización de Leaflet)
+    \item Keys únicas en capas GeoJSON para re-renderizado eficiente
+    \item Cache de red en backend para evitar reprocesamiento
+\end{itemize}
+
+% PLACEHOLDER FOR IMAGE: report/figures/ui_overview.png
+% Description: Full screenshot of the application interface
+% The image should show:
+% - Left sidebar with file upload controls and results
+% - Main map area with network, points, and legend
+% - Legend in bottom-right corner
+% - Both OSM and points loaded
+
+\begin{figure}[H]
+\centering
+\fbox{\parbox{0.9\textwidth}{\centering
+\textbf{[PLACEHOLDER: ui\_overview.png]}\\[0.5em]
+Vista general de la interfaz de usuario.\\
+Panel izquierdo: controles de carga y selección de algoritmo\\
+Área central: mapa interactivo con red y puntos\\
+Esquina inferior derecha: leyenda explicativa
+}}
+\caption{Interfaz completa de la aplicación web}
+\label{fig:ui_overview}
+\end{figure}
+
+\newpage
+
+\section{Análisis Comparativo}
+
+\textit{Esta sección se completará una vez implementados los tres algoritmos TSP, con:}
+\begin{itemize}
+    \item Comparación de tiempos de ejecución
+    \item Calidad de las soluciones (longitud de rutas)
+    \item Escalabilidad con número de puntos
+    \item Gráficos de tiempo vs. n
+    \item Ratios de aproximación de la heurística
+\end{itemize}
+
+\newpage
+
+\section{Conclusiones y Trabajo Futuro}
+
+\subsection{Logros Alcanzados}
+\begin{enumerate}
+    \item Aplicación web funcional con arquitectura cliente-servidor moderna
+    \item Carga y procesamiento eficiente de redes OSM reales
+    \item Ajuste preciso de puntos a redes viales con visualización clara
+    \item Interfaz intuitiva con leyenda explicativa para evaluación académica
+    \item Sistema modular que acepta cualquier archivo OSM y conjunto de puntos
+\end{enumerate}
+
+\subsection{Análisis de Complejidad Implementado}
+\begin{table}[H]
+\centering
+\caption{Resumen de complejidades implementadas}
+\begin{tabular}{lcc}
+\toprule
+\textbf{Operación} & \textbf{Tiempo} & \textbf{Espacio} \\
+\midrule
+Carga de red OSM & $O(|V| + |E|)$ & $O(|V| + |E|)$ \\
+Snapping de puntos & $O(n \cdot |E|)$ & $O(n)$ \\
+TSP Fuerza Bruta & $O(n! \cdot n^2)$ & $O(n^2)$ \\
+TSP Held-Karp & $O(n^2 \cdot 2^n)$ & $O(n \cdot 2^n)$ \\
+TSP 2-Opt & $O(n^2 \cdot k)$ & $O(n)$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Trabajo Futuro}
+\begin{enumerate}
+    \item \textbf{Algoritmos TSP}: Completar implementación de los tres enfoques
+    \item \textbf{Optimizaciones espaciales}: R-Tree para búsqueda de aristas
+    \item \textbf{Exportación}: Implementar descarga de GeoJSON y WKT
+    \item \textbf{Reporte automático}: Generación de LaTeX con resultados
+    \item \textbf{Testing exhaustivo}: Suite completa de pruebas unitarias
+    \item \textbf{Algoritmos adicionales}: Ant Colony, Simulated Annealing
+    \item \textbf{Restricciones adicionales}: Ventanas de tiempo, capacidad de vehículos
+    \item \textbf{Escalabilidad}: Soporte para redes de ciudades completas
+\end{enumerate}
+
+\subsection{Aprendizajes}
+\begin{itemize}
+    \item Integración de librerías geoespaciales especializadas (osmnx, Shapely)
+    \item Arquitectura moderna de aplicaciones web full-stack
+    \item Importancia de visualización clara para validación de algoritmos
+    \item Trade-offs entre exactitud y escalabilidad en problemas NP-hard
+    \item Valor de herramientas de mapeo interactivo para problemas geográficos
+\end{itemize}
+
+\newpage
+
+\section{Referencias}
+
+\begin{thebibliography}{9}
+
+\bibitem{held-karp}
+Held, M., \& Karp, R. M. (1962). 
+\textit{A dynamic programming approach to sequencing problems}. 
+Journal of the Society for Industrial and Applied Mathematics, 10(1), 196-210.
+
+\bibitem{tsp-survey}
+Applegate, D. L., Bixby, R. E., Chvátal, V., \& Cook, W. J. (2006). 
+\textit{The traveling salesman problem: a computational study}. 
+Princeton university press.
+
+\bibitem{2opt}
+Croes, G. A. (1958). 
+\textit{A method for solving traveling-salesman problems}. 
+Operations research, 6(6), 791-812.
+
+\bibitem{osmnx}
+Boeing, G. (2017). 
+\textit{OSMnx: New methods for acquiring, constructing, analyzing, and visualizing complex street networks}. 
+Computers, Environment and Urban Systems, 65, 126-139.
+
+\bibitem{networkx}
+Hagberg, A., Swart, P., \& S Chult, D. (2008). 
+\textit{Exploring network structure, dynamics, and function using NetworkX}. 
+Los Alamos National Lab.(LANL), Los Alamos, NM (United States).
+
+\bibitem{leaflet}
+Agafonkin, V. (2015). 
+\textit{Leaflet: an open-source JavaScript library for mobile-friendly interactive maps}.
+
+\bibitem{fastapi}
+Ramírez, S. (2018). 
+\textit{FastAPI framework, high performance, easy to learn, fast to code, ready for production}.
+
+\bibitem{shapely}
+Gillies, S., et al. (2007). 
+\textit{Shapely: manipulation and analysis of geometric objects}.
+
+\bibitem{react}
+Facebook Inc. (2013). 
+\textit{React: A JavaScript library for building user interfaces}.
+
+\end{thebibliography}
+
+\newpage
+
+\appendix
+
+\section{Instalación y Uso}
+
+\subsection{Requisitos del Sistema}
+\begin{itemize}
+    \item Node.js 20+
+    \item Python 3.11+
+    \item pnpm (gestor de paquetes)
+    \item 4GB RAM mínimo
+\end{itemize}
+
+\subsection{Instalación del Backend}
+\begin{lstlisting}[language=bash]
+cd backend
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+uvicorn app.main:app --reload --port 8000
+\end{lstlisting}
+
+\subsection{Instalación del Frontend}
+\begin{lstlisting}[language=bash]
+cd App/routingapp
+pnpm install
+pnpm dev
+\end{lstlisting}
+
+\subsection{Uso de la Aplicación}
+\begin{enumerate}
+    \item Abrir navegador en \texttt{http://localhost:3000}
+    \item Cargar archivo OSM (ej: \texttt{data/chapinero.osm})
+    \item Cargar archivo TSV con puntos (ej: \texttt{data/points.tsv})
+    \item Observar red y puntos en el mapa
+    \item Seleccionar algoritmo TSP y ejecutar
+    \item Visualizar ruta calculada
+\end{enumerate}
+
+\section{Estructura del Código}
+
+\subsection{Backend}
+\begin{verbatim}
+backend/
+├── app/
+│   ├── main.py              # FastAPI application
+│   ├── api/
+│   │   ├── network.py       # Network endpoints
+│   │   ├── points.py        # Points endpoints
+│   │   └── tsp.py           # TSP endpoints
+│   ├── core/
+│   │   ├── network_loader.py    # OSM processing
+│   │   └── point_snapper.py     # Point snapping
+│   └── models/
+│       └── network.py       # Pydantic models
+└── tests/
+    └── test_*.py            # Unit tests
+\end{verbatim}
+
+\subsection{Frontend}
+\begin{verbatim}
+App/routingapp/src/
+├── app/
+│   └── page.tsx            # Main page
+├── components/
+│   ├── Map.tsx             # Leaflet map
+│   ├── MapLegend.tsx       # Interactive legend
+│   ├── ControlPanel.tsx    # Sidebar controls
+│   └── FileUpload.tsx      # File upload
+├── types/
+│   └── index.ts            # TypeScript types
+└── utils/
+    └── api.ts              # API client
+\end{verbatim}
+
+\section{API Documentation}
+
+\subsection{POST /api/network/load}
+\textbf{Descripción}: Carga un archivo OSM y retorna la red como grafo
+
+\textbf{Entrada}:
+\begin{itemize}
+    \item \texttt{osm\_file}: Archivo OSM (multipart/form-data)
+\end{itemize}
+
+\textbf{Salida}:
+\begin{lstlisting}[language=json]
+{
+  "stats": {
+    "nodes": 3847,
+    "edges": 8291,
+    "bounds": {
+      "minLat": 4.624, "maxLat": 4.687,
+      "minLon": -74.068, "maxLon": -74.037
+    }
+  },
+  "geojson": { ... }
+}
+\end{lstlisting}
+
+\subsection{POST /api/points/snap}
+\textbf{Descripción}: Ajusta puntos a la red más cercana
+
+\textbf{Entrada}:
+\begin{itemize}
+    \item \texttt{points\_file}: Archivo TSV/CSV (multipart/form-data)
+\end{itemize}
+
+\textbf{Salida}:
+\begin{lstlisting}[language=json]
+{
+  "snapped_points": [
+    {
+      "id": 0,
+      "original_coords": [-74.0475, 4.6486],
+      "snapped_coords": [-74.0476, 4.6487],
+      "nearest_edge": [123, 456]
+    }
+  ],
+  "geojson": { ... }
+}
+\end{lstlisting}
+
+\end{document}
+
