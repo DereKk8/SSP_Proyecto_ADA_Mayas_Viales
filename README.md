@@ -1,1 +1,0 @@
-# SSP_Proyecto_ADA_Mayas_Viales

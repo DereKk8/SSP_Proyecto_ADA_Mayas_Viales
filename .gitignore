@@ -1,0 +1,282 @@
+# ============================================
+# OSM TSP Routing Application - Git Ignore
+# ============================================
+
+# Plan file (for teacher evaluation)
+*.plan
+.cursor/
+
+# ============================================
+# Python Backend
+# ============================================
+
+# Virtual Environment
+venv/
+env/
+ENV/
+.venv/
+backend/venv/
+backend/env/
+
+# Python Cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Distribution / Packaging
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# PyInstaller
+*.manifest
+*.spec
+
+# Unit test / Coverage
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.nox/
+coverage.xml
+*.cover
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# pyenv
+.python-version
+
+# Celery
+celerybeat-schedule
+celerybeat.pid
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# ============================================
+# Node.js Frontend
+# ============================================
+
+# Dependencies
+node_modules/
+App/routingapp/node_modules/
+
+# Build output
+.next/
+out/
+App/routingapp/.next/
+App/routingapp/out/
+
+# Production build
+build/
+dist/
+
+# Package manager files
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Next.js
+.next/
+.vercel
+
+# Environment variables
+.env*.local
+
+# ============================================
+# LaTeX Report
+# ============================================
+
+# LaTeX build files
+report/*.aux
+report/*.log
+report/*.out
+report/*.toc
+report/*.bbl
+report/*.blg
+report/*.synctex.gz
+report/*.fdb_latexmk
+report/*.fls
+report/*.nav
+report/*.snm
+report/*.vrb
+report/*.dvi
+report/*.ps
+report/*.synctex.gz(busy)
+
+# Keep only the final PDF
+# report/*.pdf
+
+# LaTeX auxiliary files
+*.aux
+*.log
+*.out
+*.toc
+*.bbl
+*.blg
+*.synctex.gz
+*.fdb_latexmk
+*.fls
+
+# ============================================
+# IDE / Editors
+# ============================================
+
+# VSCode
+.vscode/
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+
+# Cursor IDE
+.cursor/
+
+# PyCharm
+.idea/
+*.iml
+*.iws
+
+# Sublime Text
+*.sublime-project
+*.sublime-workspace
+
+# Vim
+*.swp
+*.swo
+*~
+
+# Emacs
+*~
+\#*\#
+.\#*
+
+# ============================================
+# Operating System
+# ============================================
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# Linux
+*~
+.directory
+
+# Windows Zone Identifier
+*:Zone.Identifier
+
+# ============================================
+# Data Files (Optional - for development)
+# ============================================
+
+# Uncomment if you don't want to commit test data files
+# data/*.osm
+# data/*.pbf
+# data/*.tsv
+# data/*.csv
+
+# Large data files
+*.osm.bz2
+*.osm.gz
+*.pbf
+
+# ============================================
+# Temporary Files
+# ============================================
+
+# General temporary files
+*.tmp
+*.temp
+*.bak
+*.swp
+*.swo
+temp/
+tmp/
+
+# Logs
+logs/
+*.log
+
+# Cache directories
+.cache/
+cache/
+
+# ============================================
+# Project Specific
+# ============================================
+
+# Generated GeoJSON exports (but keep directory)
+exports/*.geojson
+exports/*.wkt
+!exports/.gitkeep
+
+# Runtime data
+pids/
+*.pid
+*.seed
+*.pid.lock
+
+# Test results
+test-results/
+test-reports/
+
+# Benchmark results
+benchmarks/results/
+
+# Documentation builds
+docs/_build/
+docs/.doctrees/
+
+# ============================================
+# Dependencies Lock Files (Keep these)
+# ============================================
+# Keep lock files for reproducible builds
+# !package-lock.json
+# !yarn.lock
+# !pnpm-lock.yaml
+# !requirements.txt
+
+# ============================================
+# Keep Important Files
+# ============================================
+
+# Keep README files
+!README.md
+!*/README.md
+
+# Keep example configuration files
+!.env.example
+!config.example.json
+
+# Keep data directory structure
+!data/.gitkeep
+
