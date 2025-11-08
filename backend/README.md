@@ -100,7 +100,8 @@ Upload points file and snap them to the nearest network edges.
 
 **Request:**
 - `points_file`: File (TSV/CSV with columns: X, Y, id)
-- `network_geojson`: String (GeoJSON from network load)
+
+**Note**: The network must be loaded first via `/api/network/load`. The endpoint uses the cached graph.
 
 **Response:**
 ```json
@@ -123,9 +124,13 @@ Upload points file and snap them to the nearest network edges.
 
 **Example (curl):**
 ```bash
+# First, load the network
+curl -X POST "http://localhost:8000/api/network/load" \
+  -F "osm_file=@data/chapinero.osm"
+
+# Then snap the points
 curl -X POST "http://localhost:8000/api/points/snap" \
-  -F "points_file=@data/points.tsv" \
-  -F "network_geojson={\"type\":\"FeatureCollection\",\"features\":[]}"
+  -F "points_file=@data/points.tsv"
 ```
 
 ### 3. TSP Algorithms

@@ -1,8 +1,7 @@
-from fastapi import APIRouter, File, UploadFile, HTTPException, Form
+from fastapi import APIRouter, File, UploadFile, HTTPException
 from app.models.network import PointsResponse, SnappedPoint
 from app.core.point_snapper import load_points_from_bytes, snap_points_to_network, snapped_points_to_geojson
 from app.api.network import get_cached_graph
-import json
 
 router = APIRouter()
 
@@ -10,16 +9,12 @@ router = APIRouter()
 _points_cache = {}
 
 @router.post("/snap", response_model=PointsResponse)
-async def snap_points(
-    points_file: UploadFile = File(...),
-    network_geojson: str = Form(...)
-):
+async def snap_points(points_file: UploadFile = File(...)):
     """
     Load points from TSV/CSV file, snap them to the nearest network edges.
     
     Args:
         points_file: TSV or CSV file with columns: X, Y, id
-        network_geojson: GeoJSON of the network (for reference, actual graph from cache)
         
     Returns:
         PointsResponse with snapped points and GeoJSON
