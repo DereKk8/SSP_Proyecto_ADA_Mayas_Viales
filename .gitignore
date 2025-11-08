@@ -107,6 +107,9 @@ lerna-debug.log*
 # LaTeX Report
 # ============================================
 
+# Personal tracking file (excluded from git)
+report/README.md
+
 # LaTeX build files
 report/*.aux
 report/*.log
