@@ -231,7 +231,7 @@ Conversión GeoJSON & 120 & 12\% \\
 \end{table}
 
 \subsubsection{Ejemplo de GeoJSON Generado}
-\begin{lstlisting}[language=json, caption={Fragmento de GeoJSON de red}]
+\begin{lstlisting}[caption={Fragmento de GeoJSON de red}]
 {
   "type": "FeatureCollection",
   "features": [
@@ -256,24 +256,11 @@ Conversión GeoJSON & 120 & 12\% \\
 \end{lstlisting}
 
 \subsection{Visualización}
-% PLACEHOLDER FOR IMAGE: report/figures/network_loaded.png
-% Description: Screenshot of the web application showing the loaded road network
-% The image should show:
-% - Gray lines representing the road network of Chapinero
-% - The map should be centered on the network
-% - Legend visible in the bottom-right corner
-% - Sidebar showing network statistics (nodes, edges)
-
 \begin{figure}[H]
-\centering
-\fbox{\parbox{0.9\textwidth}{\centering
-\textbf{[PLACEHOLDER: network\_loaded.png]}\\[0.5em]
-Aplicación web mostrando la red vial de Chapinero cargada.\\
-Elementos visibles: Red de calles (gris), estadísticas en panel lateral,\\
-leyenda en esquina inferior derecha.
-}}
-\caption{Red vial de Chapinero, Bogotá cargada en la aplicación}
-\label{fig:network_loaded}
+    \centering
+    \includegraphics[width=0.9\textwidth]{figures/network_loaded.png}
+    \caption{Red vial de Chapinero, Bogotá cargada en la aplicación}
+    \label{fig:network_loaded}
 \end{figure}
 
 \subsection{Casos de Prueba}
@@ -294,21 +281,12 @@ leyenda en esquina inferior derecha.
     \item Coordenadas inválidas: validación en parsing
 \end{itemize}
 
-\subsection{Próximos Pasos}
-\begin{enumerate}
-    \item Optimizar carga de archivos grandes mediante streaming
-    \item Implementar cache persistente (Redis) para evitar reprocesamiento
-    \item Agregar soporte para archivos PBF (formato binario, más eficiente)
-    \item Validar topología del grafo (componentes conexas, ciclos)
-    \item Pruebas con diferentes ciudades y escalas de red
-\end{enumerate}
-
 \newpage
 
 \section{Ajuste de Puntos a la Red (Point Snapping)}
 
 \subsection{Descripción del Problema}
-Una vez cargada la red vial, el siguiente paso es procesar un conjunto de puntos de interés (coordenadas geográficas) y "ajustarlos" (snap) a las aristas más cercanas de la red. Este proceso es esencial porque:
+Una vez cargada la red vial, el siguiente paso es procesar un conjunto de puntos de interés (coordenadas geográficas) y \"ajustarlos\" (snap) a las aristas más cercanas de la red. Este proceso es esencial porque:
 \begin{itemize}
     \item Los vehículos solo pueden moverse sobre las calles
     \item Los puntos de entrada pueden estar fuera de las carreteras (edificios, parques, etc.)
@@ -454,25 +432,10 @@ La complejidad lineal observada ($\sim$8.4 ms/punto) confirma el análisis teór
 
 \subsection{Visualización}
 
-% PLACEHOLDER FOR IMAGE: report/figures/points_snapped.png
-% Description: Screenshot showing original points, snapped points, and snap lines
-% The image should show:
-% - Gray road network
-% - Blue circles: original input points from TSV
-% - Orange circles: snapped points on roads
-% - Dashed gray lines: connections between original and snapped
-% - Legend showing what each color represents
-
 \begin{figure}[H]
 \centering
-\fbox{\parbox{0.9\textwidth}{\centering
-\textbf{[PLACEHOLDER: points\_snapped.png]}\\[0.5em]
-Visualización del ajuste de puntos a la red.\\
-Círculos azules: puntos originales (entrada TSV)\\
-Círculos naranjas: puntos ajustados (calculados sobre calles)\\
-Líneas punteadas: conexiones mostrando el ajuste
-}}
-\caption{50 puntos ajustados a la red vial de Chapinero}
+\includegraphics[width=0.9\textwidth]{figures/points_snapped.png}
+\caption{50 puntos ajustados a la red vial de Chapinero. Círculos azules: puntos originales (entrada TSV). Círculos naranjas: puntos ajustados (calculados sobre calles). Líneas punteadas: conexiones mostrando el ajuste}
 \label{fig:points_snapped}
 \end{figure}
 
@@ -494,15 +457,6 @@ Líneas punteadas: conexiones mostrando el ajuste
     \item Coordenadas inválidas: validación y manejo de errores
     \item Formato CSV vs TSV: detección automática del delimitador
 \end{itemize}
-
-\subsection{Próximos Pasos}
-\begin{enumerate}
-    \item Implementar índice espacial R-Tree para optimizar búsqueda
-    \item Agregar validación de puntos dentro de límites de red
-    \item Opción de dividir aristas y agregar nodos virtuales en puntos de snap
-    \item Calcular y reportar métricas de calidad del snapping
-    \item Visualizar histograma de distancias de snap
-\end{enumerate}
 
 \newpage
 
@@ -576,22 +530,30 @@ La leyenda se actualiza dinámicamente según el estado de la aplicación:
 \centering
 \begin{verbatim}
 1. Usuario carga archivo OSM
-   ↓
+   |
+   v
 2. Backend procesa y retorna GeoJSON
-   ↓
+   |
+   v
 3. Mapa muestra red vial en gris
-   ↓
+   |
+   v
 4. Usuario carga archivo TSV
-   ↓
+   |
+   v
 5. Backend snapea puntos y retorna GeoJSON
-   ↓
+   |
+   v
 6. Mapa muestra puntos (azul) y snapped (naranja)
-   ↓
+   |
+   v
 7. Usuario selecciona algoritmo TSP
-   ↓
+   |
+   v
 8. Backend calcula ruta y retorna path
-   ↓
-9. Mapa muestra ruta con color específico
+   |
+   v
+9. Mapa muestra ruta con color especifico
 \end{verbatim}
 \caption{Flujo de interacción del usuario}
 \end{figure}
@@ -604,24 +566,10 @@ La leyenda se actualiza dinámicamente según el estado de la aplicación:
     \item Cache de red en backend para evitar reprocesamiento
 \end{itemize}
 
-% PLACEHOLDER FOR IMAGE: report/figures/ui_overview.png
-% Description: Full screenshot of the application interface
-% The image should show:
-% - Left sidebar with file upload controls and results
-% - Main map area with network, points, and legend
-% - Legend in bottom-right corner
-% - Both OSM and points loaded
-
 \begin{figure}[H]
 \centering
-\fbox{\parbox{0.9\textwidth}{\centering
-\textbf{[PLACEHOLDER: ui\_overview.png]}\\[0.5em]
-Vista general de la interfaz de usuario.\\
-Panel izquierdo: controles de carga y selección de algoritmo\\
-Área central: mapa interactivo con red y puntos\\
-Esquina inferior derecha: leyenda explicativa
-}}
-\caption{Interfaz completa de la aplicación web}
+\includegraphics[width=0.9\textwidth]{figures/ui_overview.png}
+\caption{Interfaz completa de la aplicación web. Panel izquierdo: controles de carga y selección de algoritmo. Área central: mapa interactivo con red y puntos. Esquina inferior derecha: leyenda explicativa}
 \label{fig:ui_overview}
 \end{figure}
 
@@ -783,35 +731,35 @@ pnpm dev
 \subsection{Backend}
 \begin{verbatim}
 backend/
-├── app/
-│   ├── main.py              # FastAPI application
-│   ├── api/
-│   │   ├── network.py       # Network endpoints
-│   │   ├── points.py        # Points endpoints
-│   │   └── tsp.py           # TSP endpoints
-│   ├── core/
-│   │   ├── network_loader.py    # OSM processing
-│   │   └── point_snapper.py     # Point snapping
-│   └── models/
-│       └── network.py       # Pydantic models
-└── tests/
-    └── test_*.py            # Unit tests
+|-- app/
+|   |-- main.py              # FastAPI application
+|   |-- api/
+|   |   |-- network.py       # Network endpoints
+|   |   |-- points.py        # Points endpoints
+|   |   +-- tsp.py           # TSP endpoints
+|   |-- core/
+|   |   |-- network_loader.py    # OSM processing
+|   |   +-- point_snapper.py     # Point snapping
+|   +-- models/
+|       +-- network.py       # Pydantic models
++-- tests/
+    +-- test_*.py            # Unit tests
 \end{verbatim}
 
 \subsection{Frontend}
 \begin{verbatim}
 App/routingapp/src/
-├── app/
-│   └── page.tsx            # Main page
-├── components/
-│   ├── Map.tsx             # Leaflet map
-│   ├── MapLegend.tsx       # Interactive legend
-│   ├── ControlPanel.tsx    # Sidebar controls
-│   └── FileUpload.tsx      # File upload
-├── types/
-│   └── index.ts            # TypeScript types
-└── utils/
-    └── api.ts              # API client
+|-- app/
+|   +-- page.tsx            # Main page
+|-- components/
+|   |-- Map.tsx             # Leaflet map
+|   |-- MapLegend.tsx       # Interactive legend
+|   |-- ControlPanel.tsx    # Sidebar controls
+|   +-- FileUpload.tsx      # File upload
+|-- types/
+|   +-- index.ts            # TypeScript types
++-- utils/
+    +-- api.ts              # API client
 \end{verbatim}
 
 \section{API Documentation}
@@ -825,7 +773,7 @@ App/routingapp/src/
 \end{itemize}
 
 \textbf{Salida}:
-\begin{lstlisting}[language=json]
+\begin{lstlisting}
 {
   "stats": {
     "nodes": 3847,
@@ -848,7 +796,7 @@ App/routingapp/src/
 \end{itemize}
 
 \textbf{Salida}:
-\begin{lstlisting}[language=json]
+\begin{lstlisting}
 {
   "snapped_points": [
     {
