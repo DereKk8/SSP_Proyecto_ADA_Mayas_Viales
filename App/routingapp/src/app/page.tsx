@@ -123,12 +123,21 @@ export default function Home() {
     }
   }, [state.pointsData, state.networkData]);
 
+  const handleClearRoutes = useCallback(() => {
+    setState(prev => ({
+      ...prev,
+      results: {},
+      errors: { ...prev.errors, algorithm: undefined },
+    }));
+  }, []);
+
   return (
     <div className="flex h-screen">
       <ControlPanel
         onLoadNetwork={handleLoadNetwork}
         onLoadPoints={handleLoadPoints}
         onRunAlgorithm={handleRunAlgorithm}
+        onClearRoutes={handleClearRoutes}
         networkData={state.networkData}
         pointsData={state.pointsData}
         results={state.results}
