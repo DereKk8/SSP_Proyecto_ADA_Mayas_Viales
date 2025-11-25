@@ -53,6 +53,20 @@ export default function MapLegend({
               <span className="text-gray-700">Snapped Points (Calculated)</span>
             </div>
             
+            {hasResults && (
+              <>
+                <div className="flex items-center gap-3 pl-2 mt-1">
+                  <div className="w-3.5 h-3.5 rounded-full bg-orange-500 border-2 border-orange-700 flex-shrink-0" />
+                  <span className="text-gray-700 text-xs">✓ Used in solution (bright)</span>
+                </div>
+                
+                <div className="flex items-center gap-3 pl-2">
+                  <div className="w-2.5 h-2.5 rounded-full bg-orange-300 border border-orange-400 opacity-50 flex-shrink-0" />
+                  <span className="text-gray-700 text-xs">✗ Excluded (dimmed)</span>
+                </div>
+              </>
+            )}
+            
             <div className="flex items-center gap-3">
               <div className="w-8 h-0.5 border-t border-dashed border-gray-400 flex-shrink-0" />
               <span className="text-gray-700">Snap Connection</span>

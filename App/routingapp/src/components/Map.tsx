@@ -93,7 +93,7 @@ export default function MapComponent({ networkData, pointsData, results }: MapCo
         {/* Points layer with different colors for original vs snapped */}
         {pointsData && (
           <GeoJSON
-            key={`points-${pointsData.snapped_points.length}`}
+            key={`points-${pointsData.snapped_points.length}-${Object.keys(results).length}-${JSON.stringify(Object.values(results).map(r => r?.tour))}`}
             data={pointsData.geojson}
             pointToLayer={(feature, latlng) => {
               if (typeof window !== 'undefined') {
@@ -101,28 +101,33 @@ export default function MapComponent({ networkData, pointsData, results }: MapCo
                 const pointType = feature.properties?.type;
                 const pointId = feature.properties?.id;
                 
+                // Check if this point is used in any solution
+                const isInSolution = Object.values(results).some(result => 
+                  result && result.tour && result.tour.includes(pointId)
+                );
+                
                 let marker;
                 
                 // Different colors for original vs snapped points
                 if (pointType === 'original') {
                   // Original points (from TSV) - Blue
                   marker = L.circleMarker(latlng, {
-                    radius: 7,
-                    fillColor: '#3b82f6',
-                    color: '#1e40af',
-                    weight: 2,
-                    opacity: 1,
-                    fillOpacity: 0.7,
+                    radius: isInSolution ? 10 : 5,
+                    fillColor: isInSolution ? '#2563eb' : '#bfdbfe',
+                    color: isInSolution ? '#1e3a8a' : '#93c5fd',
+                    weight: isInSolution ? 3 : 1,
+                    opacity: isInSolution ? 1 : 0.4,
+                    fillOpacity: isInSolution ? 1 : 0.3,
                   });
                 } else if (pointType === 'snapped') {
                   // Snapped points (calculated on road) - Orange/Amber
                   marker = L.circleMarker(latlng, {
-                    radius: 6,
-                    fillColor: '#f97316',
-                    color: '#ea580c',
-                    weight: 2,
-                    opacity: 1,
-                    fillOpacity: 0.9,
+                    radius: isInSolution ? 9 : 4,
+                    fillColor: isInSolution ? '#ea580c' : '#fed7aa',
+                    color: isInSolution ? '#9a3412' : '#fdba74',
+                    weight: isInSolution ? 4 : 1,
+                    opacity: isInSolution ? 1 : 0.4,
+                    fillOpacity: isInSolution ? 1 : 0.3,
                   });
                 } else {
                   // Default fallback
@@ -138,7 +143,10 @@ export default function MapComponent({ networkData, pointsData, results }: MapCo
                 
                 // Add tooltip with point ID (shows on hover)
                 if (marker && pointId !== undefined) {
-                  marker.bindTooltip(`Point ID: ${pointId}`, {
+                  const statusText = isInSolution ? '✓ In Solution' : '✗ Excluded';
+                  const statusColor = isInSolution ? '#10b981' : '#ef4444';
+                  
+                  marker.bindTooltip(`Point ID: ${pointId} ${isInSolution ? '✓' : ''}`, {
                     permanent: false,
                     direction: 'top',
                     className: 'point-tooltip',
@@ -158,6 +166,7 @@ export default function MapComponent({ networkData, pointsData, results }: MapCo
                       <div style="text-align: center; min-width: 150px;">
                         <strong>Point ID: ${pointId}</strong><br/>
                         <span style="color: #f97316;">Snapped Point</span><br/>
+                        <span style="color: ${statusColor}; font-weight: bold;">${statusText}</span><br/>
                         <hr style="margin: 5px 0;"/>
                         <small>
                           Coords: ${lat.toFixed(6)}, ${lon.toFixed(6)}<br/>
@@ -170,6 +179,7 @@ export default function MapComponent({ networkData, pointsData, results }: MapCo
                       <div style="text-align: center; min-width: 150px;">
                         <strong>Point ID: ${pointId}</strong><br/>
                         <span style="color: #3b82f6;">Original Point</span><br/>
+                        <span style="color: ${statusColor}; font-weight: bold;">${statusText}</span><br/>
                         <hr style="margin: 5px 0;"/>
                         <small>
                           From input TSV file<br/>

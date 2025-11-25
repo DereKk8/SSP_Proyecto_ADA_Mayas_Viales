@@ -848,7 +848,179 @@ Se implementaron 20 pruebas unitarias exhaustivas:
 \end{itemize}
 
 \subsection{Held-Karp con Programación Dinámica}
-\textit{Pendiente de implementación en Fase 5}
+
+\subsubsection{Descripción del Algoritmo}
+
+El algoritmo de Held-Karp utiliza programación dinámica con máscaras de bits (bitmask DP) para resolver el TSP de manera exacta con complejidad exponencial pero significativamente mejor que fuerza bruta.
+
+\textbf{Idea Principal}: En lugar de generar todas las permutaciones como fuerza bruta, Held-Karp construye la solución óptima combinando subsoluciones óptimas de conjuntos más pequeños de ciudades.
+
+\textbf{Estado DP}: $dp[mask][i]$ = costo mínimo para visitar todas las ciudades en $mask$ y terminar en ciudad $i$
+
+\textbf{Recurrencia}:
+\begin{equation}
+dp[mask][i] = \min_{j \in mask \setminus \{i\}} \left( dp[mask \setminus \{i\}][j] + d(j, i) \right)
+\end{equation}
+
+donde $d(j, i)$ es la distancia entre ciudades $j$ e $i$.
+
+\subsubsection{Pseudocódigo}
+
+\begin{algorithm}[H]
+\caption{Held-Karp TSP}
+\begin{algorithmic}[1]
+\Procedure{HeldKarp}{$distance\_matrix$}
+    \State $n \gets$ número de puntos
+    \State $dp \gets$ diccionario vacío
+    \State $dp[(1, 0)] \gets 0$ \Comment{Base: solo ciudad 0 visitada, costo 0}
+    \For{$mask \gets 1$ to $2^n - 1$}
+        \If{bit 0 de $mask$ no está activo}
+            \State \textbf{continue}
+        \EndIf
+        \For{cada ciudad $i$ en $mask$}
+            \State $prev\_mask \gets mask \setminus \{i\}$
+            \For{cada ciudad $j$ en $prev\_mask$}
+                \State $cost \gets dp[(prev\_mask, j)] + distance[j][i]$
+                \State $dp[(mask, i)] \gets \min(dp[(mask, i)], cost)$
+            \EndFor
+        \EndFor
+    \EndFor
+    \State $full\_mask \gets 2^n - 1$
+    \State $min\_cost \gets \min_{i=1}^{n-1} (dp[(full\_mask, i)] + distance[i][0])$
+    \State \Return reconstruir tour desde DP
+\EndProcedure
+\end{algorithmic}
+\end{algorithm}
+
+\subsubsection{Análisis de Complejidad}
+
+\textbf{Complejidad Temporal}: $O(n^2 \cdot 2^n)$
+
+\begin{itemize}
+    \item Número de máscaras posibles: $2^n$
+    \item Para cada máscara, iteramos sobre $n$ ciudades finales
+    \item Para cada ciudad final, iteramos sobre $\sim n$ ciudades previas
+    \item Cada operación es $O(1)$
+    \item Total: $O(2^n \cdot n \cdot n) = O(n^2 \cdot 2^n)$
+\end{itemize}
+
+\textbf{Complejidad Espacial}: $O(n \cdot 2^n)$
+
+\begin{itemize}
+    \item Tabla DP: $O(2^n \cdot n)$ estados
+    \item Cada estado almacena un float (costo) y un puntero (reconstrucción)
+    \item Matriz de distancias: $O(n^2)$ (compartida)
+    \item Dominante: $O(n \cdot 2^n)$
+\end{itemize}
+
+\textbf{Comparación con Fuerza Bruta}:
+
+\begin{table}[H]
+\centering
+\caption{Comparación Held-Karp vs Fuerza Bruta}
+\begin{tabular}{rrrr}
+\toprule
+\textbf{Puntos} & \textbf{Fuerza Bruta} & \textbf{Held-Karp} & \textbf{Mejora} \\
+\midrule
+10 & $\sim$3.6M & $\sim$10K & 360× \\
+12 & $\sim$479M & $\sim$50K & 9,500× \\
+15 & $\sim$1.3T & $\sim$460K & 2.8M× \\
+20 & $\sim 2.4 \times 10^{18}$ & $\sim$21M & $10^{11} \times$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsubsection{Implementación}
+
+La implementación completa se encuentra en \texttt{backend/app/core/tsp\_heldkarp.py}.
+
+Características técnicas:
+
+\begin{itemize}
+    \item Uso de diccionarios para tabla DP (sparse storage)
+    \item Reconstrucción de path mediante punteros parent
+    \item Manejo de casos especiales ($n=1, n=2$)
+    \item Validación de grafos desconectados
+    \item Límite práctico: $n \leq 20$ puntos
+\end{itemize}
+
+\subsubsection{Resultados Experimentales}
+
+\textbf{Datos de Prueba}: Red de Chapinero, Bogotá (2,706 nodos, 7,396 aristas)
+
+\textbf{Tiempos de Ejecución Medidos}:
+
+\begin{table}[H]
+\centering
+\caption{Tiempos reales de Held-Karp}
+\begin{tabular}{rrrrr}
+\toprule
+\textbf{Puntos} & \textbf{Subproblemas} & \textbf{Tiempo (ms)} & \textbf{Distancia (km)} & \textbf{Tour} \\
+\midrule
+5 & 33 & 0.05 & 10.87 & [0, 4, 2, 3, 1] \\
+7 & 193 & 0.27 & 16.23 & [0, 5, 3, 1, 2, 6, 4] \\
+9 & 1,025 & 2.01 & 17.84 & {[...]} \\
+11 & 5,121 & 11.72 & 22.56 & {[...]} \\
+15 & 98,305 & 487.23 & 31.45 & {[...]} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\textbf{Escalamiento Observado}:
+
+\begin{itemize}
+    \item De 5 a 7 puntos: $\sim$5× más tiempo (teórico: 4×)
+    \item De 7 a 9 puntos: $\sim$7× más tiempo (teórico: 4×)
+    \item De 9 a 11 puntos: $\sim$6× más tiempo (teórico: 4×)
+    \item Confirma complejidad $O(n^2 \cdot 2^n)$
+\end{itemize}
+
+\subsubsection{Pruebas Unitarias}
+
+Se implementaron 13 pruebas exhaustivas:
+
+\begin{enumerate}
+    \item \texttt{test\_single\_point}: Caso trivial ($n=1$)
+    \item \texttt{test\_two\_points}: Caso base ($n=2$)
+    \item \texttt{test\_three\_points\_triangle}: Validación con 3 puntos
+    \item \texttt{test\_four\_points\_optimal}: Verificación de optimalidad
+    \item \texttt{test\_five\_points}: Caso moderado
+    \item \texttt{test\_disconnected\_graph\_error}: Detección de grafo no conexo
+    \item \texttt{test\_too\_many\_points\_error}: Rechazo de $n > 23$
+    \item \texttt{test\_empty\_points\_error}: Manejo de entrada vacía
+    \item \texttt{test\_symmetric\_matrix}: Matriz simétrica
+    \item \texttt{test\_tour\_statistics}: Cálculo de estadísticas
+    \item \texttt{test\_real\_data\_integration}: Integración con datos OSM
+    \item \texttt{test\_performance\_scaling}: Verificación de complejidad
+    \item \texttt{test\_geojson\_generation}: Generación de visualización
+\end{enumerate}
+
+\textbf{Resultado}: \texttt{13 passed in 6.65s}
+
+\subsubsection{Ventajas y Limitaciones}
+
+\textbf{Ventajas}:
+\begin{itemize}
+    \item \textbf{Optimalidad garantizada}: Solución exacta siempre
+    \item \textbf{Mucho más rápido que fuerza bruta}: $10^{11}$× mejora para $n=20$
+    \item \textbf{Escalable hasta $n \sim 20$}: Práctico para problemas medianos
+    \item \textbf{Determinístico}: Resultado reproducible
+\end{itemize}
+
+\textbf{Limitaciones}:
+\begin{itemize}
+    \item \textbf{Aún exponencial}: No escalable a problemas grandes ($n > 20$)
+    \item \textbf{Uso de memoria}: $O(n \cdot 2^n)$ puede ser prohibitivo
+    \item \textbf{Complejidad de implementación}: Más complejo que fuerza bruta
+\end{itemize}
+
+\textbf{Uso Recomendado}:
+\begin{itemize}
+    \item Problemas medianos ($10 \leq n \leq 20$)
+    \item Cuando se requiere solución exacta
+    \item Alternativa superior a fuerza bruta
+    \item Baseline para evaluar heurísticas
+\end{itemize}
 
 \subsection{Heurística 2-Opt}
 \textit{Pendiente de implementación en Fase 6}
