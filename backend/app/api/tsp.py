@@ -12,6 +12,11 @@ from app.core.tsp_heldkarp import (
     generate_tour_path_geojson as generate_tour_path_geojson_hk,
     get_tour_statistics as get_tour_statistics_hk
 )
+from app.core.tsp_greedy import (
+    solve_tsp_greedy_with_2opt,
+    generate_tour_path_geojson as generate_tour_path_geojson_greedy,
+    get_tour_statistics as get_tour_statistics_greedy
+)
 import time
 
 router = APIRouter()
@@ -207,7 +212,93 @@ async def solve_heldkarp():
         )
 
 
-@router.post("/heuristic")
+@router.post("/heuristic", response_model=TSPResult)
 async def solve_heuristic():
-    return {"message": "Heuristic TSP endpoint - to be implemented in Phase 6"}
+    """
+    Solve TSP using Greedy Nearest Neighbor + 2-Opt heuristic.
+    
+    Fast approximate algorithm: O(n²) construction + O(n² × k) improvement.
+    Can handle large numbers of points (100+).
+    
+    Returns:
+        TSPResult with approximate tour, length, runtime, and path geometry
+    """
+    try:
+        # Get cached graph and snapped points
+        G = get_cached_modified_graph()
+        snapped_points = get_cached_points()
+        
+        if len(snapped_points) == 0:
+            raise HTTPException(
+                status_code=400,
+                detail="No points available. Please upload and snap points first."
+            )
+        
+        # No auto-subset for greedy - it can handle many points
+        # But warn if extremely large
+        if len(snapped_points) > 200:
+            print(f"⚠️ Large dataset: {len(snapped_points)} points. This may take a while...")
+        
+        # Build distance matrix
+        print(f"Building distance matrix for {len(snapped_points)} points...")
+        matrix_start = time.time()
+        distance_matrix, point_ids = build_distance_matrix(G, snapped_points)
+        matrix_time = (time.time() - matrix_start) * 1000
+        
+        # Validate distance matrix
+        validation = validate_distance_matrix(distance_matrix)
+        print(f"Distance matrix validation: {validation}")
+        
+        if validation['has_infinite']:
+            raise HTTPException(
+                status_code=400,
+                detail="Some points are not reachable from others. "
+                       "The road network may be disconnected."
+            )
+        
+        # Solve TSP using Greedy + 2-Opt
+        print(f"Solving TSP with Greedy+2-Opt for {len(point_ids)} points...")
+        tsp_start = time.time()
+        tour_ids, tour_length, stats = solve_tsp_greedy_with_2opt(
+            distance_matrix, point_ids, max_iterations=1000
+        )
+        tsp_time = (time.time() - tsp_start) * 1000
+        
+        # Total runtime (matrix + TSP)
+        total_runtime = matrix_time + tsp_time
+        
+        print(f"✓ Solution found!")
+        print(f"  Tour: {tour_ids}")
+        print(f"  Initial (greedy) length: {stats['greedy_length']:.2f} meters")
+        print(f"  Improved length: {tour_length:.2f} meters")
+        print(f"  Improvement: {stats['improvement_percent']:.2f}%")
+        print(f"  2-Opt swaps: {stats['two_opt_swaps']}")
+        print(f"  Runtime: {total_runtime:.2f}ms (matrix: {matrix_time:.2f}ms, TSP: {tsp_time:.2f}ms)")
+        
+        # Generate path GeoJSON
+        path_geojson = generate_tour_path_geojson_greedy(G, tour_ids, snapped_points, "greedy+2opt")
+        path_geojson['properties']['length'] = tour_length
+        path_geojson['properties']['runtime_ms'] = total_runtime
+        path_geojson['properties']['greedy_length'] = stats['greedy_length']
+        path_geojson['properties']['improvement_percent'] = stats['improvement_percent']
+        path_geojson['properties']['two_opt_swaps'] = stats['two_opt_swaps']
+        
+        # Get tour statistics
+        tour_stats = get_tour_statistics_greedy(tour_ids, distance_matrix, point_ids)
+        
+        return TSPResult(
+            tour=tour_ids,
+            length=tour_length,
+            runtime_ms=total_runtime,
+            path_geojson=path_geojson,
+            warning=None
+        )
+        
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to solve TSP: {str(e)}"
+        )
 
