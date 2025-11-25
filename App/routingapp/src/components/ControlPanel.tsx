@@ -13,6 +13,7 @@ interface ControlPanelProps {
     onLoadNetwork: (file: File) => Promise<void>;
     onLoadPoints: (file: File) => Promise<void>;
     onRunAlgorithm: (algorithm: AlgorithmType) => Promise<void>;
+    onClearRoutes: () => void;
     networkData: NetworkResponse | null;
     pointsData: PointsResponse | null;
     results: {
@@ -36,6 +37,7 @@ export default function ControlPanel({
     onLoadNetwork,
     onLoadPoints,
     onRunAlgorithm,
+    onClearRoutes,
     networkData,
     pointsData,
     results,
@@ -254,9 +256,24 @@ export default function ControlPanel({
                     results.heldkarp ||
                     results.heuristic) && (
                     <div className="border-t pt-6 mt-6">
-                        <h2 className="text-lg font-semibold text-gray-900 mb-4">
-                            Results
-                        </h2>
+                        <div className="flex items-center justify-between mb-4">
+                            <h2 className="text-lg font-semibold text-gray-900">
+                                Results
+                            </h2>
+                            <button
+                                onClick={onClearRoutes}
+                                className="text-sm text-red-600 hover:text-red-700 hover:bg-red-50 
+                                         px-3 py-1 rounded border border-red-300 transition-colors
+                                         flex items-center gap-1"
+                                title="Clear all computed routes from map"
+                            >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
+                                          d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                </svg>
+                                Clear Routes
+                            </button>
+                        </div>
 
                         <div className="space-y-3">
                             {results.bruteforce && (
