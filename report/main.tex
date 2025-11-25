@@ -712,13 +712,6 @@ warning_message = None
 if len(snapped_points) > MAX_BRUTEFORCE_POINTS:
     original_count = len(snapped_points)
     snapped_points = snapped_points[:MAX_BRUTEFORCE_POINTS]
-    warning_message = (
-        f"⚠️ Only the first {MAX_BRUTEFORCE_POINTS} out of "
-        f"{original_count} points were used for brute-force "
-        f"calculation. Points {MAX_BRUTEFORCE_POINTS + 1}-"
-        f"{original_count} were ignored. For larger datasets, "
-        f"consider using Held-Karp or Heuristic algorithms."
-    )
 \end{lstlisting}
 
 Esta funcionalidad:
@@ -826,7 +819,7 @@ Se implementaron 20 pruebas unitarias exhaustivas:
     \item \texttt{test\_no\_warning\_for\_small\_dataset}: Datasets pequeños
 \end{enumerate}
 
-\textbf{Resultado}: \texttt{20 passed in 28.61s} ✓
+\textbf{Resultado}: \texttt{20 passed in 28.61s} 
 
 \subsubsection{Ventajas y Limitaciones}
 
@@ -946,14 +939,6 @@ La leyenda se actualiza dinámicamente según el estado de la aplicación:
 \end{verbatim}
 \caption{Flujo de interacción del usuario}
 \end{figure}
-
-\subsection{Optimizaciones de Rendimiento}
-\begin{itemize}
-    \item Carga dinámica del componente de mapa (evita SSR)
-    \item React Strict Mode deshabilitado (previene doble inicialización de Leaflet)
-    \item Keys únicas en capas GeoJSON para re-renderizado eficiente
-    \item Cache de red en backend para evitar reprocesamiento
-\end{itemize}
 
 \begin{figure}[H]
 \centering
@@ -1115,41 +1100,6 @@ pnpm dev
     \item Visualizar ruta calculada
 \end{enumerate}
 
-\section{Estructura del Código}
-
-\subsection{Backend}
-\begin{verbatim}
-backend/
-|-- app/
-|   |-- main.py              # FastAPI application
-|   |-- api/
-|   |   |-- network.py       # Network endpoints
-|   |   |-- points.py        # Points endpoints
-|   |   +-- tsp.py           # TSP endpoints
-|   |-- core/
-|   |   |-- network_loader.py    # OSM processing
-|   |   +-- point_snapper.py     # Point snapping
-|   +-- models/
-|       +-- network.py       # Pydantic models
-+-- tests/
-    +-- test_*.py            # Unit tests
-\end{verbatim}
-
-\subsection{Frontend}
-\begin{verbatim}
-App/routingapp/src/
-|-- app/
-|   +-- page.tsx            # Main page
-|-- components/
-|   |-- Map.tsx             # Leaflet map
-|   |-- MapLegend.tsx       # Interactive legend
-|   |-- ControlPanel.tsx    # Sidebar controls
-|   +-- FileUpload.tsx      # File upload
-|-- types/
-|   +-- index.ts            # TypeScript types
-+-- utils/
-    +-- api.ts              # API client
-\end{verbatim}
 
 \section{API Documentation}
 
@@ -1198,6 +1148,42 @@ App/routingapp/src/
   "geojson": { ... }
 }
 \end{lstlisting}
+
+\subsection{POST /api/tsp/bruteforce}
+\textbf{Descripción}: Resuelve TSP con algoritmo de fuerza bruta (máx. 12 puntos)
+
+\textbf{Prerequisitos}: Red cargada y puntos ajustados (usa caché del servidor)
+
+\textbf{Entrada}: Sin body
+
+\textbf{Salida} (HTTP 200):
+\begin{lstlisting}
+{
+  "tour": [0, 4, 3, 2, 1],
+  "length": 10087.42,
+  "runtime_ms": 145.73,
+  "path_geojson": {
+    "type": "Feature",
+    "geometry": { "type": "LineString", "coordinates": [...] },
+    "properties": {
+      "algorithm": "bruteforce",
+      "permutations_checked": 24
+    }
+  },
+  "warning": null
+}
+\end{lstlisting}
+
+\textbf{Campos principales}:
+\begin{itemize}
+    \item \texttt{tour}: Lista ordenada de IDs de puntos
+    \item \texttt{length}: Distancia total en metros
+    \item \texttt{runtime\_ms}: Tiempo de ejecución
+    \item \texttt{path\_geojson}: Geometría del path sobre calles
+    \item \texttt{warning}: Mensaje si se aplicó subset ($n > 12$)
+\end{itemize}
+
+\textbf{Errores}: 400 (sin puntos o grafo desconectado), 500 (error interno)
 
 \end{document}
 

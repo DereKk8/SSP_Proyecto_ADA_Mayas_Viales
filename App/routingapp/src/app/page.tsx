@@ -150,6 +150,11 @@ export default function Home() {
             heldkarp: !!state.results.heldkarp,
             heuristic: !!state.results.heuristic,
           }}
+          tourData={{
+            bruteforce: state.results.bruteforce,
+            heldkarp: state.results.heldkarp,
+            heuristic: state.results.heuristic,
+          }}
         />
       </div>
     </div>

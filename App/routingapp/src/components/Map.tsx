@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { MapContainer, TileLayer, GeoJSON, useMap } from 'react-leaflet';
+import { MapContainer, TileLayer, GeoJSON, useMap, CircleMarker, Popup } from 'react-leaflet';
 import type { LatLngBounds } from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import type { NetworkResponse, PointsResponse, TSPResult } from '@/types';
@@ -99,11 +99,14 @@ export default function MapComponent({ networkData, pointsData, results }: MapCo
               if (typeof window !== 'undefined') {
                 const L = require('leaflet');
                 const pointType = feature.properties?.type;
+                const pointId = feature.properties?.id;
+                
+                let marker;
                 
                 // Different colors for original vs snapped points
                 if (pointType === 'original') {
                   // Original points (from TSV) - Blue
-                  return L.circleMarker(latlng, {
+                  marker = L.circleMarker(latlng, {
                     radius: 7,
                     fillColor: '#3b82f6',
                     color: '#1e40af',
@@ -113,7 +116,7 @@ export default function MapComponent({ networkData, pointsData, results }: MapCo
                   });
                 } else if (pointType === 'snapped') {
                   // Snapped points (calculated on road) - Orange/Amber
-                  return L.circleMarker(latlng, {
+                  marker = L.circleMarker(latlng, {
                     radius: 6,
                     fillColor: '#f97316',
                     color: '#ea580c',
@@ -121,17 +124,63 @@ export default function MapComponent({ networkData, pointsData, results }: MapCo
                     opacity: 1,
                     fillOpacity: 0.9,
                   });
+                } else {
+                  // Default fallback
+                  marker = L.circleMarker(latlng, {
+                    radius: 5,
+                    fillColor: '#6b7280',
+                    color: '#374151',
+                    weight: 1,
+                    opacity: 1,
+                    fillOpacity: 0.6,
+                  });
                 }
                 
-                // Default fallback
-                return L.circleMarker(latlng, {
-                  radius: 5,
-                  fillColor: '#6b7280',
-                  color: '#374151',
-                  weight: 1,
-                  opacity: 1,
-                  fillOpacity: 0.6,
-                });
+                // Add tooltip with point ID (shows on hover)
+                if (marker && pointId !== undefined) {
+                  marker.bindTooltip(`Point ID: ${pointId}`, {
+                    permanent: false,
+                    direction: 'top',
+                    className: 'point-tooltip',
+                    offset: [0, -10]
+                  });
+                  
+                  // Also add a popup for click (shows more info)
+                  const snappedPoint = pointsData.snapped_points.find(p => p.id === pointId);
+                  if (snappedPoint && pointType === 'snapped') {
+                    const [lon, lat] = snappedPoint.snapped_coords;
+                    const [origLon, origLat] = snappedPoint.original_coords;
+                    const distance = Math.sqrt(
+                      Math.pow(lon - origLon, 2) + Math.pow(lat - origLat, 2)
+                    ) * 111000; // rough conversion to meters
+                    
+                    marker.bindPopup(`
+                      <div style="text-align: center; min-width: 150px;">
+                        <strong>Point ID: ${pointId}</strong><br/>
+                        <span style="color: #f97316;">Snapped Point</span><br/>
+                        <hr style="margin: 5px 0;"/>
+                        <small>
+                          Coords: ${lat.toFixed(6)}, ${lon.toFixed(6)}<br/>
+                          Snap distance: ~${distance.toFixed(1)}m
+                        </small>
+                      </div>
+                    `);
+                  } else if (pointType === 'original') {
+                    marker.bindPopup(`
+                      <div style="text-align: center; min-width: 150px;">
+                        <strong>Point ID: ${pointId}</strong><br/>
+                        <span style="color: #3b82f6;">Original Point</span><br/>
+                        <hr style="margin: 5px 0;"/>
+                        <small>
+                          From input TSV file<br/>
+                          Coords: ${latlng.lat.toFixed(6)}, ${latlng.lng.toFixed(6)}
+                        </small>
+                      </div>
+                    `);
+                  }
+                }
+                
+                return marker;
               }
               return null as any;
             }}
@@ -188,6 +237,169 @@ export default function MapComponent({ networkData, pointsData, results }: MapCo
             }}
           />
         )}
+
+        {/* Start/End Point Markers for Brute Force */}
+        {results.bruteforce && pointsData && typeof window !== 'undefined' && (() => {
+          const L = require('leaflet');
+          const startPointId = results.bruteforce.tour[0];
+          const startPoint = pointsData.snapped_points.find(p => p.id === startPointId);
+          if (startPoint) {
+            const [lon, lat] = startPoint.snapped_coords;
+            return (
+              <>
+                {/* Start/End marker (Green with white border) */}
+                <CircleMarker
+                  center={[lat, lon]}
+                  radius={10}
+                  fillColor="#10b981"
+                  color="#ffffff"
+                  weight={3}
+                  opacity={1}
+                  fillOpacity={0.9}
+                  eventHandlers={{
+                    add: (e) => {
+                      const marker = e.target;
+                      marker.bindTooltip(`START/END (ID: ${startPointId})`, {
+                        permanent: false,
+                        direction: 'top',
+                        className: 'point-tooltip',
+                        offset: [0, -15]
+                      });
+                    }
+                  }}
+                >
+                  <Popup>
+                    <div className="text-center">
+                      <strong>START/END POINT</strong><br/>
+                      Point ID: {startPointId}<br/>
+                      Algorithm: Brute Force<br/>
+                      <small>Coords: {lat.toFixed(6)}, {lon.toFixed(6)}</small>
+                    </div>
+                  </Popup>
+                </CircleMarker>
+                {/* Inner dot for emphasis */}
+                <CircleMarker
+                  center={[lat, lon]}
+                  radius={4}
+                  fillColor="#ffffff"
+                  color="#10b981"
+                  weight={1}
+                  opacity={1}
+                  fillOpacity={1}
+                />
+              </>
+            );
+          }
+          return null;
+        })()}
+
+        {/* Start/End Point Markers for Held-Karp */}
+        {results.heldkarp && pointsData && typeof window !== 'undefined' && (() => {
+          const startPointId = results.heldkarp.tour[0];
+          const startPoint = pointsData.snapped_points.find(p => p.id === startPointId);
+          if (startPoint) {
+            const [lon, lat] = startPoint.snapped_coords;
+            return (
+              <>
+                {/* Start/End marker (Green with white border) */}
+                <CircleMarker
+                  center={[lat, lon]}
+                  radius={10}
+                  fillColor="#10b981"
+                  color="#ffffff"
+                  weight={3}
+                  opacity={1}
+                  fillOpacity={0.9}
+                  eventHandlers={{
+                    add: (e) => {
+                      const marker = e.target;
+                      marker.bindTooltip(`START/END (ID: ${startPointId})`, {
+                        permanent: false,
+                        direction: 'top',
+                        className: 'point-tooltip',
+                        offset: [0, -15]
+                      });
+                    }
+                  }}
+                >
+                  <Popup>
+                    <div className="text-center">
+                      <strong>START/END POINT</strong><br/>
+                      Point ID: {startPointId}<br/>
+                      Algorithm: Held-Karp<br/>
+                      <small>Coords: {lat.toFixed(6)}, {lon.toFixed(6)}</small>
+                    </div>
+                  </Popup>
+                </CircleMarker>
+                {/* Inner dot for emphasis */}
+                <CircleMarker
+                  center={[lat, lon]}
+                  radius={4}
+                  fillColor="#ffffff"
+                  color="#10b981"
+                  weight={1}
+                  opacity={1}
+                  fillOpacity={1}
+                />
+              </>
+            );
+          }
+          return null;
+        })()}
+
+        {/* Start/End Point Markers for Heuristic */}
+        {results.heuristic && pointsData && typeof window !== 'undefined' && (() => {
+          const startPointId = results.heuristic.tour[0];
+          const startPoint = pointsData.snapped_points.find(p => p.id === startPointId);
+          if (startPoint) {
+            const [lon, lat] = startPoint.snapped_coords;
+            return (
+              <>
+                {/* Start/End marker (Green with white border) */}
+                <CircleMarker
+                  center={[lat, lon]}
+                  radius={10}
+                  fillColor="#10b981"
+                  color="#ffffff"
+                  weight={3}
+                  opacity={1}
+                  fillOpacity={0.9}
+                  eventHandlers={{
+                    add: (e) => {
+                      const marker = e.target;
+                      marker.bindTooltip(`START/END (ID: ${startPointId})`, {
+                        permanent: false,
+                        direction: 'top',
+                        className: 'point-tooltip',
+                        offset: [0, -15]
+                      });
+                    }
+                  }}
+                >
+                  <Popup>
+                    <div className="text-center">
+                      <strong>START/END POINT</strong><br/>
+                      Point ID: {startPointId}<br/>
+                      Algorithm: Heuristic<br/>
+                      <small>Coords: {lat.toFixed(6)}, {lon.toFixed(6)}</small>
+                    </div>
+                  </Popup>
+                </CircleMarker>
+                {/* Inner dot for emphasis */}
+                <CircleMarker
+                  center={[lat, lon]}
+                  radius={4}
+                  fillColor="#ffffff"
+                  color="#10b981"
+                  weight={1}
+                  opacity={1}
+                  fillOpacity={1}
+                />
+              </>
+            );
+          }
+          return null;
+        })()}
       </MapContainer>
     </div>
   );

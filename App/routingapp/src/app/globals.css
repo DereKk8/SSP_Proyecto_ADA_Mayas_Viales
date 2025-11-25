@@ -24,3 +24,38 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+/* Custom styles for Leaflet point tooltips */
+.leaflet-tooltip.point-tooltip {
+  background-color: rgba(0, 0, 0, 0.85);
+  color: white;
+  border: none;
+  border-radius: 4px;
+  padding: 4px 8px;
+  font-size: 12px;
+  font-weight: 600;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+}
+
+.leaflet-tooltip.point-tooltip::before {
+  border-top-color: rgba(0, 0, 0, 0.85);
+}
+
+/* Custom scrollbar for legend */
+.max-h-\[80vh\]::-webkit-scrollbar {
+  width: 6px;
+}
+
+.max-h-\[80vh\]::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 3px;
+}
+
+.max-h-\[80vh\]::-webkit-scrollbar-thumb {
+  background: #888;
+  border-radius: 3px;
+}
+
+.max-h-\[80vh\]::-webkit-scrollbar-thumb:hover {
+  background: #555;
+}
