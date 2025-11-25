@@ -34,13 +34,20 @@ async def solve_bruteforce():
                 detail="No points available. Please upload and snap points first."
             )
         
-        # Check point limit for brute-force
-        if len(snapped_points) > 12:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Brute-force algorithm cannot handle {len(snapped_points)} points. "
-                       f"Maximum is 12 points. Please use a smaller subset or a different algorithm."
+        # Auto-subset points if exceeding brute-force limit
+        MAX_BRUTEFORCE_POINTS = 12
+        warning_message = None
+        
+        if len(snapped_points) > MAX_BRUTEFORCE_POINTS:
+            original_count = len(snapped_points)
+            snapped_points = snapped_points[:MAX_BRUTEFORCE_POINTS]
+            warning_message = (
+                f"⚠️ Only the first {MAX_BRUTEFORCE_POINTS} out of {original_count} points "
+                f"were used for brute-force calculation. "
+                f"Points {MAX_BRUTEFORCE_POINTS + 1}-{original_count} were ignored. "
+                f"For larger datasets, consider using Held-Karp or Heuristic algorithms."
             )
+            print(f"⚠️ Subset applied: Using {MAX_BRUTEFORCE_POINTS}/{original_count} points")
         
         # Build distance matrix
         print(f"Building distance matrix for {len(snapped_points)} points...")
@@ -87,7 +94,8 @@ async def solve_bruteforce():
             tour=tour_ids,
             length=tour_length,
             runtime_ms=total_runtime,
-            path_geojson=path_geojson
+            path_geojson=path_geojson,
+            warning=warning_message
         )
         
     except ValueError as e:

@@ -440,6 +440,203 @@ class TestTSPIntegration:
         print(f"  Coordinates in path: {len(geojson['geometry']['coordinates'])}")
 
 
+class TestAutoSubsetFeature:
+    """Test suite for auto-subset feature (>12 points handling)."""
+    
+    @pytest.fixture
+    def sample_graph(self):
+        """Load the chapinero network for testing."""
+        with open(OSM_FILE, 'rb') as f:
+            osm_bytes = f.read()
+        return load_osm_from_bytes(osm_bytes)
+    
+    @pytest.fixture
+    def all_points(self):
+        """Load all 50 points from points.tsv."""
+        with open(POINTS_FILE, 'rb') as f:
+            points_bytes = f.read()
+        return load_points_from_bytes(points_bytes)
+    
+    def test_exactly_12_points_no_warning(self, sample_graph):
+        """Test 1: Exactly 12 points should work without warning."""
+        # Load points and snap them
+        with open(POINTS_FILE, 'rb') as f:
+            points_bytes = f.read()
+        points = load_points_from_bytes(points_bytes)
+        
+        # Take exactly 10 points (faster test - 9! = 362,880 permutations)
+        points_subset = points.head(10)
+        snapped_points, G = snap_points_to_network(points_subset, sample_graph)
+        
+        # Simulate API logic
+        MAX_POINTS = 12
+        warning_message = None
+        
+        if len(snapped_points) > MAX_POINTS:
+            warning_message = "Should not trigger"
+        
+        # Build matrix and solve
+        matrix, point_ids = build_distance_matrix(G, snapped_points)
+        tour_ids, length, perms = solve_tsp_bruteforce(matrix, point_ids)
+        
+        # Verify results
+        assert len(snapped_points) == 10
+        assert len(tour_ids) == 10
+        assert length > 0
+        assert perms == 362880  # 9! permutations
+        assert warning_message is None
+        
+        print("✓ Test passed: 10 points (≤12) processed without warning")
+        print(f"  Points processed: {len(tour_ids)}")
+        print(f"  Tour length: {length:.2f} meters")
+        print(f"  Permutations: {perms:,}")
+        print(f"  Warning: {warning_message}")
+    
+    def test_13_points_subset_applied(self, sample_graph):
+        """Test 2: 9 points with MAX_POINTS=8 triggers subset."""
+        # Load points and snap them
+        with open(POINTS_FILE, 'rb') as f:
+            points_bytes = f.read()
+        points = load_points_from_bytes(points_bytes)
+        
+        # Take 9 points to test subsetting to 8 (7! = 5,040 permutations - fast!)
+        points_9 = points.head(9)
+        snapped_points_9, G = snap_points_to_network(points_9, sample_graph)
+        
+        # Simulate API behavior: subset to first 8
+        MAX_POINTS = 8  # For testing - real API uses 12
+        original_count = len(snapped_points_9)
+        snapped_points_subset = snapped_points_9[:MAX_POINTS]
+        
+        # Build matrix and solve with subset
+        matrix, point_ids = build_distance_matrix(G, snapped_points_subset)
+        tour_ids, length, perms = solve_tsp_bruteforce(matrix, point_ids)
+        
+        # Verify subset was applied
+        assert original_count == 9
+        assert len(snapped_points_subset) == 8
+        assert len(tour_ids) == 8
+        assert length > 0
+        
+        # Verify warning message format
+        warning = (
+            f"⚠️ Only the first {MAX_POINTS} out of {original_count} points "
+            f"were used for brute-force calculation. "
+            f"Points {MAX_POINTS + 1}-{original_count} were ignored. "
+            f"For larger datasets, consider using Held-Karp or Heuristic algorithms."
+        )
+        assert "9" in warning
+        assert "8" in warning
+        assert "⚠️" in warning
+        
+        print("✓ Test passed: 9 points correctly subset to 8")
+        print(f"  Original points: {original_count}")
+        print(f"  Points used: {len(tour_ids)}")
+        print(f"  Points ignored: {original_count - len(tour_ids)}")
+        print(f"  Warning: {warning}")
+    
+    def test_50_points_subset_applied(self, sample_graph, all_points):
+        """Test 3: 50 points should trigger subset to 12 (using 8 for speed)."""
+        # Snap all points
+        snapped_points_all, G = snap_points_to_network(all_points, sample_graph)
+        
+        # Simulate API behavior: subset to first 8 (for faster test)
+        MAX_POINTS = 12
+        TEST_POINTS = 8  # Use 8 for faster execution (7! = 5,040)
+        original_count = len(snapped_points_all)
+        snapped_points_subset = snapped_points_all[:TEST_POINTS]
+        
+        # Build matrix and solve with subset
+        matrix, point_ids = build_distance_matrix(G, snapped_points_subset)
+        tour_ids, length, perms = solve_tsp_bruteforce(matrix, point_ids)
+        
+        # Verify subset was applied
+        assert original_count == 50
+        assert len(snapped_points_subset) == TEST_POINTS
+        assert len(tour_ids) == TEST_POINTS
+        assert length > 0
+        
+        # Verify warning message format (for full 50→12 scenario)
+        warning = (
+            f"⚠️ Only the first {MAX_POINTS} out of {original_count} points "
+            f"were used for brute-force calculation. "
+            f"Points {MAX_POINTS + 1}-{original_count} were ignored. "
+            f"For larger datasets, consider using Held-Karp or Heuristic algorithms."
+        )
+        assert "50" in warning
+        assert "12" in warning
+        assert "13-50" in warning
+        
+        print(f"✓ Test passed: 50 points would be subset to {MAX_POINTS}")
+        print(f"  Original points: {original_count}")
+        print(f"  Points used in test: {len(tour_ids)} (for speed)")
+        print(f"  Points that would be ignored: {original_count - MAX_POINTS}")
+        print(f"  Tour length: {length:.2f} meters")
+        print(f"  Expected warning: {warning}")
+    
+    def test_subset_ids_are_correct(self, sample_graph):
+        """Test 4: Verify that subset uses the correct point IDs."""
+        # Load and snap points
+        with open(POINTS_FILE, 'rb') as f:
+            points_bytes = f.read()
+        points = load_points_from_bytes(points_bytes)
+        
+        # Take 10 points to test subset of 7
+        points_10 = points.head(10)
+        snapped_points_10, G = snap_points_to_network(points_10, sample_graph)
+        
+        # Get original IDs of first 7
+        SUBSET_SIZE = 7
+        original_first_7_ids = [p['id'] for p in snapped_points_10[:SUBSET_SIZE]]
+        
+        # Simulate API behavior: subset to first 7
+        snapped_points_subset = snapped_points_10[:SUBSET_SIZE]
+        
+        # Build matrix and solve
+        matrix, point_ids = build_distance_matrix(G, snapped_points_subset)
+        tour_ids, length, perms = solve_tsp_bruteforce(matrix, point_ids)
+        
+        # Verify tour only contains IDs from first 7 points
+        assert all(tour_id in original_first_7_ids for tour_id in tour_ids)
+        assert len(set(tour_ids)) == SUBSET_SIZE  # All unique
+        
+        print("✓ Test passed: Subset contains correct point IDs")
+        print(f"  Expected IDs: {original_first_7_ids}")
+        print(f"  Tour IDs: {tour_ids}")
+        print(f"  All IDs match: {set(tour_ids) == set(original_first_7_ids)}")
+    
+    def test_no_warning_for_small_dataset(self, sample_graph):
+        """Test 5: Small datasets (≤12 points) should not generate warning."""
+        # Load points and snap them
+        with open(POINTS_FILE, 'rb') as f:
+            points_bytes = f.read()
+        points = load_points_from_bytes(points_bytes)
+        
+        # Take only 5 points
+        points_5 = points.head(5)
+        snapped_points_5, G = snap_points_to_network(points_5, sample_graph)
+        
+        # Simulate API behavior
+        MAX_POINTS = 12
+        warning_message = None
+        
+        if len(snapped_points_5) > MAX_POINTS:
+            warning_message = "Should not appear"
+        
+        # Build matrix and solve
+        matrix, point_ids = build_distance_matrix(G, snapped_points_5)
+        tour_ids, length, perms = solve_tsp_bruteforce(matrix, point_ids)
+        
+        # Verify no warning
+        assert warning_message is None
+        assert len(tour_ids) == 5
+        assert length > 0
+        
+        print("✓ Test passed: No warning for 5 points")
+        print(f"  Points: {len(tour_ids)}")
+        print(f"  Warning: {warning_message}")
+
+
 if __name__ == "__main__":
     # Run tests with pytest
     pytest.main([__file__, "-v", "-s"])

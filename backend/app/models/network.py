@@ -35,4 +35,5 @@ class TSPResult(BaseModel):
     length: float = Field(..., description="Total length of the tour in meters")
     runtime_ms: float = Field(..., description="Runtime in milliseconds")
     path_geojson: Dict[str, Any] = Field(..., description="GeoJSON LineString of the path")
+    warning: str | None = Field(None, description="Warning message if any limitations were applied")
 
