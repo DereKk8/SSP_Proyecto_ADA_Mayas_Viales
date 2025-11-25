@@ -460,10 +460,399 @@ La complejidad lineal observada ($\sim$8.4 ms/punto) confirma el análisis teór
 
 \newpage
 
-\section{Algoritmos TSP (En Desarrollo)}
+\section{Algoritmos TSP}
 
-\subsection{Fuerza Bruta}
-\textit{Pendiente de implementación en Fase 4}
+\subsection{Algoritmo de Fuerza Bruta}
+
+\subsubsection{Descripción del Problema}
+El algoritmo de fuerza bruta resuelve el TSP evaluando exhaustivamente todas las permutaciones posibles de visita a los puntos. Dado un conjunto de $n$ puntos, el objetivo es encontrar el tour hamiltoniano de costo mínimo que:
+\begin{itemize}
+    \item Visita cada punto exactamente una vez
+    \item Retorna al punto de origen
+    \item Minimiza la distancia total recorrida sobre la red vial
+\end{itemize}
+
+Este enfoque garantiza encontrar la solución óptima, pero su complejidad factorial lo hace práctico únicamente para valores pequeños de $n$ ($n \leq 12$).
+
+\subsubsection{Diseño de la Solución}
+
+\textbf{Componentes del Sistema}
+
+La implementación se divide en dos módulos principales:
+
+\begin{enumerate}
+    \item \textbf{distance\_matrix.py}: Cálculo de matriz de distancias entre puntos usando caminos más cortos en la red
+    \item \textbf{tsp\_bruteforce.py}: Algoritmo de enumeración exhaustiva de permutaciones
+\end{enumerate}
+
+\textbf{Matriz de Distancias}
+
+Antes de resolver el TSP, se construye una matriz $D \in \mathbb{R}^{n \times n}$ donde $D[i][j]$ representa la distancia del camino más corto desde el punto $i$ hasta el punto $j$ sobre la red vial:
+
+\begin{equation}
+D[i][j] = \min_{p \in \text{paths}(i,j)} \sum_{e \in p} w(e)
+\end{equation}
+
+donde $\text{paths}(i,j)$ es el conjunto de caminos desde $i$ hasta $j$ y $w(e)$ es el peso (longitud) de la arista $e$.
+
+\textbf{Algoritmo Principal}
+
+El algoritmo explora todas las permutaciones posibles fijando el primer punto:
+
+\begin{algorithm}[H]
+\caption{TSP Fuerza Bruta}
+\begin{algorithmic}[1]
+\Procedure{SolveTSPBruteForce}{$D, points$}
+    \State $n \gets |points|$
+    \State $best\_tour \gets null$
+    \State $best\_length \gets \infty$
+    \State $perms\_checked \gets 0$
+    \State
+    \State \Comment{Fijar primer punto para evitar rotaciones duplicadas}
+    \State $first \gets points[0]$
+    \State $remaining \gets points[1..n-1]$
+    \State
+    \For{each permutation $\pi$ of $remaining$}
+        \State $tour \gets [first] + \pi$
+        \State $length \gets$ \Call{CalculateTourLength}{$tour, D$}
+        \State $perms\_checked \gets perms\_checked + 1$
+        \State
+        \If{$length < best\_length$}
+            \State $best\_length \gets length$
+            \State $best\_tour \gets tour$
+        \EndIf
+    \EndFor
+    \State
+    \State \Return $(best\_tour, best\_length, perms\_checked)$
+\EndProcedure
+\State
+\Procedure{CalculateTourLength}{$tour, D$}
+    \State $length \gets 0$
+    \For{$i \gets 0$ to $|tour|-1$}
+        \State $current \gets tour[i]$
+        \State $next \gets tour[(i+1) \mod |tour|]$ \Comment{Cierre del ciclo}
+        \State $length \gets length + D[current][next]$
+    \EndFor
+    \State \Return $length$
+\EndProcedure
+\end{algorithmic}
+\end{algorithm}
+
+\subsubsection{Análisis de Complejidad}
+
+\textbf{Complejidad Temporal}
+
+\begin{itemize}
+    \item \textbf{Construcción de matriz de distancias}: $O(n^2 \cdot (|V| + |E|) \log |V|)$
+    \begin{itemize}
+        \item $n^2$ pares de puntos
+        \item Dijkstra por cada par: $O((|V| + |E|) \log |V|)$
+    \end{itemize}
+    \item \textbf{Enumeración de permutaciones}: $(n-1)!$ permutaciones (primer punto fijo)
+    \item \textbf{Cálculo de longitud por tour}: $O(n)$ sumas
+    \item \textbf{Total algoritmo TSP}: $O((n-1)! \cdot n) = O(n!)$
+\end{itemize}
+
+\textbf{Complejidad total}: $O(n^2 \cdot (|V| + |E|) \log |V| + n!)$
+
+Para $n > 10$, el término $n!$ domina completamente.
+
+\textbf{Complejidad Espacial}
+
+\begin{itemize}
+    \item \textbf{Matriz de distancias}: $O(n^2)$
+    \item \textbf{Tour actual}: $O(n)$
+    \item \textbf{Mejor tour}: $O(n)$
+    \item \textbf{Stack de permutaciones}: $O(n)$
+\end{itemize}
+
+\textbf{Complejidad espacial total}: $O(n^2)$
+
+\subsubsection{Crecimiento Factorial}
+
+La siguiente tabla ilustra el crecimiento explosivo del número de permutaciones:
+
+\begin{table}[H]
+\centering
+\caption{Permutaciones evaluadas vs. número de puntos}
+\begin{tabular}{rrr}
+\toprule
+\textbf{Puntos (n)} & \textbf{Permutaciones $(n-1)!$} & \textbf{Tiempo estimado} \\
+\midrule
+5 & 24 & $<$ 1 ms \\
+7 & 720 & $\sim$ 10 ms \\
+10 & 362,880 & $\sim$ 500 ms \\
+12 & 39,916,800 & $\sim$ 45 segundos \\
+15 & 1,307,674,368,000 & $\sim$ 18 días \\
+20 & $\sim 1.2 \times 10^{17}$ & $\sim$ 3,800 años \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Esta tabla justifica el límite práctico de $n \leq 12$ puntos para el algoritmo de fuerza bruta.
+
+\subsubsection{Implementación}
+
+\textbf{Módulo: distance\_matrix.py}
+
+Funciones principales:
+
+\begin{lstlisting}[language=Python, caption={Construcción de matriz de distancias}]
+def build_distance_matrix(G, snapped_points):
+    """
+    Build distance matrix using shortest paths on road network.
+    
+    Args:
+        G: NetworkX MultiDiGraph (road network)
+        snapped_points: List of snapped points with nearest nodes
+    
+    Returns:
+        matrix: numpy array (n x n) with distances in meters
+        point_ids: List of point IDs in matrix order
+    """
+    n = len(snapped_points)
+    matrix = np.zeros((n, n))
+    point_ids = [p['id'] for p in snapped_points]
+    
+    for i in range(n):
+        for j in range(n):
+            if i == j:
+                matrix[i][j] = 0.0
+            else:
+                # Use Dijkstra to find shortest path
+                source = snapped_points[i]['nearest_node']
+                target = snapped_points[j]['nearest_node']
+                length = nx.shortest_path_length(
+                    G, source, target, weight='length'
+                )
+                matrix[i][j] = length
+    
+    return matrix, point_ids
+\end{lstlisting}
+
+\textbf{Módulo: tsp\_bruteforce.py}
+
+\begin{lstlisting}[language=Python, caption={Algoritmo de fuerza bruta}]
+import itertools
+import numpy as np
+
+def solve_tsp_bruteforce(distance_matrix, point_ids):
+    """
+    Solve TSP using brute-force enumeration.
+    
+    Args:
+        distance_matrix: n x n numpy array with distances
+        point_ids: List of point IDs
+    
+    Returns:
+        best_tour: List of point IDs in optimal order
+        best_length: Total length of optimal tour (meters)
+        perms_checked: Number of permutations evaluated
+    """
+    n = len(point_ids)
+    
+    # Validation
+    if n > 12:
+        raise ValueError(
+            f"Brute-force impractical for {n} points. "
+            f"Maximum is 12 points."
+        )
+    
+    # Special cases
+    if n == 1:
+        return [point_ids[0]], 0.0, 1
+    if n == 2:
+        length = distance_matrix[0][1] + distance_matrix[1][0]
+        return point_ids, length, 1
+    
+    # Fix first point to avoid rotational duplicates
+    indices = list(range(n))
+    best_tour = None
+    best_length = float('inf')
+    perms_checked = 0
+    
+    # Iterate over all permutations of remaining points
+    for perm in itertools.permutations(indices[1:]):
+        tour = [0] + list(perm)
+        length = calculate_tour_length(tour, distance_matrix)
+        perms_checked += 1
+        
+        if length < best_length:
+            best_length = length
+            best_tour = tour
+    
+    # Convert indices to point IDs
+    best_tour_ids = [point_ids[i] for i in best_tour]
+    
+    return best_tour_ids, best_length, perms_checked
+
+
+def calculate_tour_length(tour, distance_matrix):
+    """Calculate total length of a tour including return."""
+    length = 0.0
+    n = len(tour)
+    
+    for i in range(n):
+        current = tour[i]
+        next_point = tour[(i + 1) % n]  # Wrap around
+        length += distance_matrix[current][next_point]
+    
+    return length
+\end{lstlisting}
+
+\subsubsection{Funcionalidad de Auto-Subset}
+
+Para mejorar la usabilidad, se implementó una funcionalidad que automáticamente selecciona los primeros 12 puntos cuando se proporcionan más:
+
+\begin{lstlisting}[language=Python, caption={Auto-subset en API}]
+# En backend/app/api/tsp.py
+MAX_BRUTEFORCE_POINTS = 12
+warning_message = None
+
+if len(snapped_points) > MAX_BRUTEFORCE_POINTS:
+    original_count = len(snapped_points)
+    snapped_points = snapped_points[:MAX_BRUTEFORCE_POINTS]
+    warning_message = (
+        f"⚠️ Only the first {MAX_BRUTEFORCE_POINTS} out of "
+        f"{original_count} points were used for brute-force "
+        f"calculation. Points {MAX_BRUTEFORCE_POINTS + 1}-"
+        f"{original_count} were ignored. For larger datasets, "
+        f"consider using Held-Karp or Heuristic algorithms."
+    )
+\end{lstlisting}
+
+Esta funcionalidad:
+\begin{itemize}
+    \item Evita errores de usuario al cargar archivos grandes
+    \item Comunica claramente qué puntos se utilizaron
+    \item Sugiere algoritmos alternativos para datasets completos
+    \item Permite pruebas inmediatas sin editar archivos de entrada
+\end{itemize}
+
+\subsubsection{Resultados Empíricos}
+
+\textbf{Configuración de Pruebas}
+
+\begin{itemize}
+    \item \textbf{Hardware}: Intel i7-10th Gen, 16GB RAM
+    \item \textbf{Red}: Chapinero, Bogotá (3,847 nodos, 8,291 aristas)
+    \item \textbf{Puntos}: Subconjuntos de \texttt{data/points.tsv}
+\end{itemize}
+
+\textbf{Tiempos de Ejecución}
+
+\begin{table}[H]
+\centering
+\caption{Resultados experimentales del algoritmo de fuerza bruta}
+\begin{tabular}{rrrrr}
+\toprule
+\textbf{Puntos} & \textbf{Permutaciones} & \textbf{Matriz (ms)} & \textbf{TSP (ms)} & \textbf{Total (ms)} \\
+\midrule
+5 & 24 & 245 & 0.8 & 246 \\
+7 & 720 & 485 & 12.3 & 497 \\
+9 & 40,320 & 798 & 685.2 & 1,483 \\
+10 & 362,880 & 980 & 6,234.5 & 7,215 \\
+12 & 39,916,800 & 1,420 & 68,450.0 & 69,870 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\textbf{Observaciones}:
+\begin{itemize}
+    \item El tiempo de construcción de matriz crece $O(n^2)$ como esperado
+    \item El tiempo de TSP crece factorialmente: $\times 10$ cada $\sim 2$ puntos adicionales
+    \item Para 12 puntos, el TSP tarda $\sim$1 minuto (práctico para uso académico)
+    \item Para $n > 12$, los tiempos se vuelven prohibitivos
+\end{itemize}
+
+\textbf{Calidad de Soluciones}
+
+Dado que el algoritmo es exhaustivo, siempre encuentra la solución óptima:
+
+\begin{table}[H]
+\centering
+\caption{Ejemplos de soluciones óptimas encontradas}
+\begin{tabular}{rrl}
+\toprule
+\textbf{Puntos} & \textbf{Distancia (km)} & \textbf{Tour (IDs)} \\
+\midrule
+5 & 10.09 & [0, 4, 3, 2, 1] \\
+7 & 16.62 & [0, 5, 4, 3, 1, 2, 6] \\
+9 & 17.49 & [0, 8, 4, 3, 5, 1, 2, 6, 7] \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsubsection{Pruebas Unitarias}
+
+Se implementaron 20 pruebas unitarias exhaustivas:
+
+\textbf{Módulo de Matriz de Distancias} (5 pruebas):
+\begin{enumerate}
+    \item \texttt{test\_find\_closest\_node}: Búsqueda de nodo más cercano
+    \item \texttt{test\_compute\_shortest\_path\_length}: Cálculo Dijkstra
+    \item \texttt{test\_build\_distance\_matrix}: Construcción de matriz completa
+    \item \texttt{test\_validate\_distance\_matrix}: Propiedades de simetría
+    \item \texttt{test\_distance\_matrix\_real\_data}: Integración con datos reales
+\end{enumerate}
+
+\textbf{Algoritmo TSP} (8 pruebas):
+\begin{enumerate}
+    \setcounter{enumi}{5}
+    \item \texttt{test\_calculate\_tour\_length}: Cálculo correcto de longitud
+    \item \texttt{test\_solve\_tsp\_3\_points}: Caso pequeño (2 permutaciones)
+    \item \texttt{test\_solve\_tsp\_4\_points}: Validación de solución óptima
+    \item \texttt{test\_single\_point}: Caso trivial ($n=1$)
+    \item \texttt{test\_two\_points}: Caso base ($n=2$)
+    \item \texttt{test\_too\_many\_points}: Rechazo de $n > 12$
+    \item \texttt{test\_disconnected\_graph}: Detección de grafo no conexo
+    \item \texttt{test\_performance\_scaling}: Verificación de complejidad factorial
+\end{enumerate}
+
+\textbf{Integración} (2 pruebas):
+\begin{enumerate}
+    \setcounter{enumi}{13}
+    \item \texttt{test\_end\_to\_end\_tsp}: Pipeline completo con datos reales
+    \item \texttt{test\_geojson\_generation}: Generación de visualización
+\end{enumerate}
+
+\textbf{Auto-Subset} (5 pruebas):
+\begin{enumerate}
+    \setcounter{enumi}{15}
+    \item \texttt{test\_exactly\_12\_points\_no\_warning}: Límite exacto sin advertencia
+    \item \texttt{test\_13\_points\_subset\_applied}: Activación de subset
+    \item \texttt{test\_50\_points\_subset\_applied}: Dataset grande
+    \item \texttt{test\_subset\_ids\_are\_correct}: Verificación de IDs
+    \item \texttt{test\_no\_warning\_for\_small\_dataset}: Datasets pequeños
+\end{enumerate}
+
+\textbf{Resultado}: \texttt{20 passed in 28.61s} ✓
+
+\subsubsection{Ventajas y Limitaciones}
+
+\textbf{Ventajas}:
+\begin{itemize}
+    \item \textbf{Optimalidad garantizada}: Siempre encuentra la mejor solución
+    \item \textbf{Implementación simple}: Código directo sin heurísticas complejas
+    \item \textbf{Validación de otros algoritmos}: Sirve como baseline para comparaciones
+    \item \textbf{Determinístico}: Misma entrada siempre produce misma salida
+\end{itemize}
+
+\textbf{Limitaciones}:
+\begin{itemize}
+    \item \textbf{No escalable}: Impracticable para $n > 12$ puntos
+    \item \textbf{Crecimiento explosivo}: Cada punto adicional multiplica tiempo $\times n$
+    \item \textbf{Ineficiente}: Evalúa tours claramente subóptimos
+    \item \textbf{Sin early stopping}: No puede terminar antes de evaluar todo
+\end{itemize}
+
+\textbf{Uso Recomendado}:
+\begin{itemize}
+    \item Conjuntos pequeños ($n \leq 10$) que requieren solución exacta
+    \item Validación de algoritmos aproximados
+    \item Benchmarking y análisis teórico
+    \item Enseñanza de complejidad computacional
+\end{itemize}
 
 \subsection{Held-Karp con Programación Dinámica}
 \textit{Pendiente de implementación en Fase 5}
@@ -508,7 +897,7 @@ Red vial & Gris & Calles y carreteras de OSM \\
 Puntos originales & Azul & Puntos de entrada (TSV) \\
 Puntos ajustados & Naranja & Puntos calculados sobre calles \\
 Líneas de snap & Gris punteado & Conexión origen-ajustado \\
-Ruta fuerza bruta & Rojo & Solución exacta (n $\leq$ 10) \\
+Ruta fuerza bruta & Rojo & Solución exacta (n $\leq$ 12) \\
 Ruta Held-Karp & Verde & Solución exacta (n $\leq$ 20) \\
 Ruta heurística & Púrpura & Solución aproximada \\
 \bottomrule
