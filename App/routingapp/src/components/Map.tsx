@@ -112,22 +112,22 @@ export default function MapComponent({ networkData, pointsData, results }: MapCo
                 if (pointType === 'original') {
                   // Original points (from TSV) - Blue
                   marker = L.circleMarker(latlng, {
-                    radius: isInSolution ? 10 : 5,
-                    fillColor: isInSolution ? '#2563eb' : '#bfdbfe',
-                    color: isInSolution ? '#1e3a8a' : '#93c5fd',
-                    weight: isInSolution ? 3 : 1,
-                    opacity: isInSolution ? 1 : 0.4,
-                    fillOpacity: isInSolution ? 1 : 0.3,
+                    radius: isInSolution ? 10 : 6,
+                    fillColor: isInSolution ? '#2563eb' : '#3b82f6',
+                    color: isInSolution ? '#1e3a8a' : '#1e40af',
+                    weight: isInSolution ? 3 : 2,
+                    opacity: isInSolution ? 1 : 0.9,
+                    fillOpacity: isInSolution ? 1 : 0.7,
                   });
                 } else if (pointType === 'snapped') {
                   // Snapped points (calculated on road) - Orange/Amber
                   marker = L.circleMarker(latlng, {
-                    radius: isInSolution ? 9 : 4,
-                    fillColor: isInSolution ? '#ea580c' : '#fed7aa',
-                    color: isInSolution ? '#9a3412' : '#fdba74',
-                    weight: isInSolution ? 4 : 1,
-                    opacity: isInSolution ? 1 : 0.4,
-                    fillOpacity: isInSolution ? 1 : 0.3,
+                    radius: isInSolution ? 9 : 5,
+                    fillColor: isInSolution ? '#ea580c' : '#f97316',
+                    color: isInSolution ? '#9a3412' : '#c2410c',
+                    weight: isInSolution ? 4 : 2,
+                    opacity: isInSolution ? 1 : 0.95,
+                    fillOpacity: isInSolution ? 1 : 0.75,
                   });
                 } else {
                   // Default fallback
@@ -198,10 +198,10 @@ export default function MapComponent({ networkData, pointsData, results }: MapCo
               // Style for snap lines (connecting original to snapped)
               if (feature?.properties?.type === 'snap_line') {
                 return {
-                  color: '#9ca3af',
-                  weight: 1,
-                  opacity: 0.5,
-                  dashArray: '4, 4',
+                  color: '#64748b',
+                  weight: 1.5,
+                  opacity: 0.6,
+                  dashArray: '5, 5',
                 };
               }
               return {};
